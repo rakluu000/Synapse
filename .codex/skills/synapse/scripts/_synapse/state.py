@@ -9,7 +9,7 @@ from .common import SynapsePaths, read_json, read_text, utc_now_iso, write_json_
 
 
 def extract_json_meta(markdown: str) -> dict[str, Any]:
-    m = re.search(r"```json\\s*\\n(\\{.*?\\})\\s*\\n```", markdown, flags=re.DOTALL)
+    m = re.search(r"```json[ \t]*\r?\n(\{.*?\})[ \t]*\r?\n```", markdown, flags=re.DOTALL)
     if not m:
         return {}
     try:
@@ -108,4 +108,3 @@ def rebuild_index(paths: SynapsePaths) -> None:
             }
         )
     write_json_atomic(paths.index_json, {"version": 1, "updated_at": utc_now_iso(), "plans": plans})
-

@@ -48,8 +48,6 @@ def model_argv(model: str, prompt: str, *, resume: Optional[str]) -> list[str]:
             "stream-json",
             "--verbose",
             "--disable-slash-commands",
-            "--setting-sources",
-            "",
         ]
         if resume:
             argv += ["--resume", resume]
@@ -285,7 +283,7 @@ def run_model_tasks_parallel(
 
 
 def extract_unified_diff(text: str) -> Optional[str]:
-    m = re.search(r"```(?:diff|patch)\\s*\\n(.*?)\\n```", text, flags=re.DOTALL | re.IGNORECASE)
+    m = re.search(r"```(?:diff|patch)[ \t]*\r?\n(.*?)\r?\n```", text, flags=re.DOTALL | re.IGNORECASE)
     if m:
         diff = m.group(1).strip("\n") + "\n"
         if "diff --git" in diff or (diff.startswith("---") and "\n+++" in diff):
