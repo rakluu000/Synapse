@@ -53,7 +53,7 @@ def cmd_frontend(args: argparse.Namespace) -> int:
         model="gemini",
         prompt=prompt,
         project_root=project_root,
-        resume=args.resume,
+        resume=getattr(args, "resume_gemini", None),
         defaults=defaults,
         slug=slug,
         phase="frontend",
@@ -101,38 +101,64 @@ def cmd_backend(args: argparse.Namespace) -> int:
     slug = slugify(request)
 
     context_pack = build_context_pack(paths=paths, defaults=defaults, slug=slug, phase="backend", query=request)
-    task_path = unique_path(paths.patches_dir / f"{slug}-backend-task.md")
-    task = "\n".join(
-        [
-            f"# Backend task: `{slug}`",
-            "",
-            f"Request: {request}",
-            "",
-            "## Inputs",
-            f"- Context pack: `{context_pack}`",
-            "",
-            "## Constraints",
-            "- Prefer minimal, targeted changes.",
-            "- Follow existing project conventions.",
-            "",
-        ]
+
+    prompt = textwrap.dedent(
+        f"""
+        You are a backend expert engineer.
+
+        Constraints:
+        - Do NOT use any tools, MCP servers, file access, or external search.
+        - Only use the provided context pack.
+        - Output MUST be a single Unified Diff patch ONLY.
+        - Do not include commentary outside the diff.
+
+        Request:
+        {request}
+
+        Context pack:
+        {context_pack.read_text(encoding="utf-8")}
+        """
+    ).strip()
+
+    claude_run = run_model_with_retries(
+        model="claude",
+        prompt=prompt,
+        project_root=project_root,
+        resume=getattr(args, "resume_claude", None),
+        defaults=defaults,
+        slug=slug,
+        phase="backend",
     )
-    task_path.write_text(task, encoding="utf-8", newline="\n")
+
+    out_md = unique_path(paths.patches_dir / f"{slug}-backend-claude.md")
+    out_md.write_text(claude_run.output_text.strip() + "\n", encoding="utf-8", newline="\n")
+
+    diff = extract_unified_diff(claude_run.output_text or "")
+    out_diff = None
+    if diff:
+        out_diff = unique_path(paths.patches_dir / f"{slug}-backend-claude.diff")
+        out_diff.write_text(diff, encoding="utf-8", newline="\n")
 
     rebuild_index(paths)
+    sessions_by_slug = {"claude": {slug: claude_run.session_id}} if claude_run.session_id else None
     update_state(
         paths,
         last={
             "command": "backend",
             "slug": slug,
             "context_pack": str(context_pack),
-            "task_path": str(task_path),
+            "claude_session_id": claude_run.session_id,
+            "output_md": str(out_md),
+            "output_diff": str(out_diff) if out_diff else None,
         },
+        sessions_by_slug=sessions_by_slug,
     )
 
     print(f"context_pack: {context_pack}")
-    print(f"task: {task_path}")
-    return 0
+    print(f"claude_session_id: {claude_run.session_id or 'TBD'}")
+    print(f"output: {out_md}")
+    print(f"patch: {out_diff or '(not extracted)'}")
+    return 0 if claude_run.exit_code == 0 else 2
 
 
 def _claude_text_task(args: argparse.Namespace, *, phase: str, title: str, want_patch: bool) -> int:
@@ -177,7 +203,7 @@ def _claude_text_task(args: argparse.Namespace, *, phase: str, title: str, want_
         model="claude",
         prompt=prompt,
         project_root=project_root,
-        resume=args.resume,
+        resume=getattr(args, "resume_claude", None),
         defaults=defaults,
         slug=slug,
         phase=phase,
@@ -267,7 +293,7 @@ def cmd_enhance(args: argparse.Namespace) -> int:
         model="claude",
         prompt=prompt,
         project_root=project_root,
-        resume=args.resume,
+        resume=getattr(args, "resume_claude", None),
         defaults=defaults,
         slug=slug,
         phase="enhance",
@@ -286,4 +312,3 @@ def cmd_enhance(args: argparse.Namespace) -> int:
 
     print(f"output: {out_md}")
     return 0 if run.exit_code == 0 else 2
-

@@ -13,6 +13,7 @@ from _synapse.cmd_tasks import (
     cmd_optimize,
     cmd_test,
 )
+from _synapse.cmd_verify import cmd_verify
 from _synapse.cmd_workflow import cmd_execute, cmd_feat, cmd_init, cmd_plan, cmd_review, cmd_workflow
 from _synapse.common import SynapseError
 
@@ -20,7 +21,10 @@ from _synapse.common import SynapseError
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="synapse.py")
     p.add_argument("--project-dir", default=".", help="Directory inside the target project (default: .)")
-    p.add_argument("--resume", default=None, help="Session id to resume (overrides plan/session lookup)")
+    # Back-compat: --resume is treated as --resume-gemini.
+    p.add_argument("--resume", dest="resume_gemini", default=None, help="Gemini session id to resume")
+    p.add_argument("--resume-gemini", dest="resume_gemini", default=None, help="Gemini session id to resume")
+    p.add_argument("--resume-claude", dest="resume_claude", default=None, help="Claude session id to resume")
 
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -28,6 +32,12 @@ def build_parser() -> argparse.ArgumentParser:
     sub_init.set_defaults(func=cmd_init)
 
     sub_plan = sub.add_parser("plan")
+    sub_plan.add_argument(
+        "--task-type",
+        choices=["frontend", "backend", "fullstack"],
+        default="fullstack",
+        help="Routing hint for later stages (default: fullstack)",
+    )
     sub_plan.add_argument("request", nargs=argparse.REMAINDER)
     sub_plan.set_defaults(func=cmd_plan)
 
@@ -36,15 +46,40 @@ def build_parser() -> argparse.ArgumentParser:
     sub_exec.set_defaults(func=cmd_execute)
 
     sub_review = sub.add_parser("review")
+    sub_review.add_argument("--plan-path", default=None, help="Optional plan path (used to infer task_type/slug)")
+    sub_review.add_argument(
+        "--task-type",
+        choices=["frontend", "backend", "fullstack"],
+        default=None,
+        help="Override inferred task_type (default: infer from plan/state)",
+    )
     sub_review.set_defaults(func=cmd_review)
+
+    sub_verify = sub.add_parser("verify")
+    sub_verify.add_argument("--dry-run", action="store_true", help="Print planned commands only")
+    sub_verify.add_argument("--no-install", action="store_true", help="Skip dependency installation steps")
+    sub_verify.add_argument("--keep-going", action="store_true", help="Continue even if a step fails")
+    sub_verify.set_defaults(func=cmd_verify)
 
     sub_workflow = sub.add_parser("workflow")
     sub_workflow.add_argument("--yes", action="store_true")
+    sub_workflow.add_argument(
+        "--task-type",
+        choices=["frontend", "backend", "fullstack"],
+        default="fullstack",
+        help="Routing hint for later stages (default: fullstack)",
+    )
     sub_workflow.add_argument("request", nargs=argparse.REMAINDER)
     sub_workflow.set_defaults(func=cmd_workflow)
 
     sub_feat = sub.add_parser("feat")
     sub_feat.add_argument("--yes", action="store_true")
+    sub_feat.add_argument(
+        "--task-type",
+        choices=["frontend", "backend", "fullstack"],
+        default="fullstack",
+        help="Routing hint for later stages (default: fullstack)",
+    )
     sub_feat.add_argument("request", nargs=argparse.REMAINDER)
     sub_feat.set_defaults(func=cmd_feat)
 

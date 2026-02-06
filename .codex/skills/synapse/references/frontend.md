@@ -1,6 +1,6 @@
 # `synapse frontend`
 
-前端/UI 专项：用 **Gemini** 产出 Unified Diff Patch（原型补丁），并落盘到 `./.synapse/patches/**`。
+前端/UI 专项：用 **Gemini** 产出 Unified Diff Patch（草稿补丁），并落盘到 `./.synapse/patches/**`，再由 Codex（主控）重写为最终实现。
 
 ## 用法
 
@@ -23,4 +23,3 @@ synapse frontend <UI 需求文本...>
 
 - patch 提取失败：保留 `*.md` 原文；可手动复制 diff 或重跑
 - 会话丢失：重跑不影响既有产物；会生成新日志与新 patch 文件
-

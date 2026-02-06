@@ -41,12 +41,15 @@ def render_synapse_block() -> str:
             "- Session resume: relies on `.synapse/state.json` and session ids stored in plan files",
             "",
             "**Safety**",
-            "- Synapse scripts only write: `AGENTS.md`, `.gitignore`, `./.synapse/**`",
+            "- `synapse init` only writes: `AGENTS.md`, `.gitignore`, `./.synapse/**`",
+            "- `synapse verify` may create project-local toolchain artifacts (e.g. lockfiles, `.venv/`, `node_modules/`, build outputs) as a result of running project commands",
+            "- External models never receive direct filesystem/tool access; Codex applies final code changes",
             "",
             "**Common commands**",
             "- `synapse init`",
-            "- `synapse plan <request>`",
+            "- `synapse plan --task-type <frontend|backend|fullstack> <request>`",
             "- `synapse execute <plan_path>`",
+            "- `synapse verify`",
             "- `synapse review`",
             "- `synapse workflow [--yes] <request>`",
             "",
@@ -90,4 +93,3 @@ def ensure_agents_md(project_root: Path) -> None:
         return
 
     write_text(agents, text.rstrip() + "\n\n" + block)
-

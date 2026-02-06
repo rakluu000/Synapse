@@ -1,6 +1,6 @@
 # `synapse backend`
 
-后端/逻辑专项：默认由 **Codex 主控侧**完成实现（不强制调用外部模型），脚本负责落盘上下文包与任务记录，便于可重复执行与审计。
+后端/逻辑专项：用 **Claude** 产出后端 diff 草稿（Unified Diff），落盘到 `./.synapse/**`，再由 Codex（主控）重写为最终实现。
 
 ## 用法
 
@@ -11,11 +11,12 @@ synapse backend <需求文本...>
 ## 主要产物
 
 - `<project>/.synapse/context/<slug>-backend.md`：上下文包（git/rg 摘要 + 关键文件片段）
-- `<project>/.synapse/patches/<slug>-backend-task.md`：结构化任务描述（给 Codex 主控侧直接执行）
-- `<project>/.synapse/state.json`：记录最近一次 backend 任务
+- `<project>/.synapse/patches/<slug>-backend-claude.md`：Claude 原始文本
+- `<project>/.synapse/patches/<slug>-backend-claude.diff`：提取出的 unified diff（如可提取）
+- `<project>/.synapse/logs/*`：Claude stream-json 原始输出
+- `<project>/.synapse/state.json`：记录最近一次 backend 任务（含 session_id 与产物路径）
 
 ## 失败与恢复
 
-- 任何失败都不会修改产品代码；修复环境后重跑即可
-- 若需要外部模型辅助，可改用 `synapse plan/execute` 或在 backend 任务中显式要求生成 patch 并落盘
-
+- patch 提取失败：保留 `*.md` 原文；可手动复制 diff 或重跑
+- 会话丢失：重跑不影响既有产物；会生成新日志与新 patch 文件

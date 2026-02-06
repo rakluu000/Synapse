@@ -1,36 +1,47 @@
 # `synapse plan`
 
-生成**可复用会话**的实施计划文件，并为外部模型准备上下文包（context pack）。
+生成**可复用会话**的实施计划文件（包含 `task_type` 路由信息），并为外部模型准备上下文包（context pack）。
 
 ## 用法
 
 ```bash
-synapse plan <需求文本...>
+synapse plan --task-type <frontend|backend|fullstack> <需求文本...>
 ```
+
+> 若不指定 `--task-type`：默认 `fullstack`（成本更高，但最不容易漏掉链路）。
+
+## 模型分工（本阶段）
+
+- **Claude**：架构/风险/边界/测试策略的主计划草案（默认总会调用）
+- **Gemini**：仅当 `task_type` 包含 `frontend` 时，补充 UI/UX/可访问性相关计划草案
+- **Codex（主控）**：对照两份草案，产出最终可执行计划并在后续阶段落地（脚本不自动合并）
 
 ## 写入哪些文件
 
-- `<project>/.synapse/plan/<slug>.md`：计划文件（包含需求、关键步骤、会话信息）
+- `<project>/.synapse/plan/<slug>.md`：计划文件（包含 `task_type`、需求、关键步骤、会话信息）
 - `<project>/.synapse/context/<slug>-plan.md`：上下文包（用于投喂外部模型）
-- `<project>/.synapse/logs/*`：Gemini/Claude 的 `stream-json` 原始输出（如启用外部模型）
+- `<project>/.synapse/patches/*`：
+  - `*-plan-claude.md`：Claude 计划草案
+  - `*-plan-gemini.md`：Gemini 计划草案（仅 frontend/fullstack）
+- `<project>/.synapse/logs/*`：Gemini/Claude 的 `stream-json` 原始输出
 - `<project>/.synapse/state.json` / `<project>/.synapse/index.json`：更新索引与状态
 
-> 计划文件的 `session_id` 允许先占位（`TBD`），但推荐在 plan 阶段就从 Gemini `stream-json` 中捕获并写入，便于后续 `synapse execute --resume`。
+## 会话复用（关键）
 
-## 输出（对 Codex）
+- 脚本会从 `stream-json` 捕获并落盘 `session_id`（写入 plan meta）
+- 后续 `synapse execute` 会优先从 plan meta 读取并 `--resume`，以降低重复上下文投喂
 
-脚本会在 stdout 打印：
+## 输出（stdout）
 
-- 计划文件路径
-- context pack 路径
-- 捕获到的 `gemini_session_id`（如果本次调用了 Gemini）
+- `plan: <path>`
+- `context_pack: <path>`
+- `gemini_session_id: <id|TBD>`（仅 frontend/fullstack）
+- `claude_session_id: <id|TBD>`
 
 ## 失败与恢复（关键）
 
-- **Gemini 调用失败/超时**：
+- 外部模型调用失败/超时：
   - 仍会生成 plan 文件（`session_id: TBD`）
-  - 可直接重跑 `synapse plan ...`（会生成新 plan 或覆盖同 slug 的 plan，取决于实现策略）
-- **需要续跑**：
-  - 后续用 `synapse execute <plan_path>`，脚本会优先读取 plan 中的 `gemini_session_id` 并 `--resume`
-  - 即使清空 Codex 对话，也可以依靠 `<project>/.synapse/state.json` + plan 文件继续
-
+  - 修复环境后重跑 `synapse plan ...` 即可（会生成新日志；plan 可能覆盖同 slug 或产生同名后缀，取决于当前实现）
+- 清空 Codex 对话后续跑：
+  - 依靠 `<project>/.synapse/state.json` + plan 文件里的 `sessions` 继续执行
