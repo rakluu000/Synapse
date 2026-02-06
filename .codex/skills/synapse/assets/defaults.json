@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "logging": {
+    "level": "INFO",
+    "keep_log_files": 50,
+    "max_log_file_bytes": 10485760
+  },
+  "runner": {
+    "timeout_seconds": 3600,
+    "concurrency": 2,
+    "retries": 2,
+    "retry_backoff": {
+      "base_seconds": 2,
+      "max_seconds": 30,
+      "jitter": true
+    },
+    "stream_json": {
+      "max_line_bytes": 10485760
+    }
+  },
+  "context_pack": {
+    "rg": {
+      "max_depth": 25,
+      "max_queries": 10,
+      "max_matches_per_query": 80,
+      "max_total_matches": 200,
+      "max_filesize": "1M"
+    },
+    "snippets": {
+      "max_files": 20,
+      "max_lines_per_file": 160,
+      "max_bytes_per_file": 20000
+    },
+    "git": {
+      "diff_max_bytes": 200000,
+      "diff_max_lines": 2000,
+      "status_max_lines": 300
+    }
+  },
+  "safety": {
+    "allowed_write_roots": [
+      "AGENTS.md",
+      ".gitignore",
+      ".synapse"
+    ]
+  }
+}
+
