@@ -5,7 +5,7 @@ Alias of `workflow`.
 ## Usage
 
 ```bash
-synapse feat [--task-type <frontend|backend|fullstack>] [--yes] <request...>
+synapse feat [--task-type <frontend|backend|fullstack>] <request...>
 ```
 
 ## Notes

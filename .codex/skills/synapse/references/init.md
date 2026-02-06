@@ -12,7 +12,7 @@ synapse init
 
 - `<project>/AGENTS.md` (maintains the `<!-- SYNAPSE-BEGIN --> … <!-- SYNAPSE-END -->` block)
 - `<project>/.gitignore` (appends `/.synapse/`)
-- `<project>/.synapse/**` (plan/context/logs/patches/state/index)
+- `<project>/.synapse/**` (plan/context/logs/patches/prompts/state/index)
 
 ## Notes
 

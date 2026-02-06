@@ -9,9 +9,9 @@ Synapse is a **project-local workflow runner** driven by **Codex (main controlle
 
 ## Models (roles)
 
-- **Claude**: planning (architecture/risks) + backend draft diffs + general code audit
-- **Gemini**: frontend/UI draft diffs + UI/UX audit (only when `task_type` includes frontend)
-- **Codex**: merges drafts, writes final code, runs verification, and delivers
+- **Codex (main controller)**: decides routing, writes prompts, applies final code, runs verification, and delivers
+- **Claude**: planning/architecture/risks + backend draft diffs + general code audit
+- **Gemini**: frontend/UI draft diffs + UI/UX + accessibility audit (only when `task_type` includes frontend)
 
 Artifacts are written under `./.synapse/**` in the *target project root*.
 
@@ -27,7 +27,16 @@ uv run --no-project python <SKILL_DIR>/scripts/synapse.py --project-dir <PROJECT
 ```
 
 - Treat any external diff as a **draft**. Do **not** apply verbatim; Codex rewrites to production quality.
-- If code changes are needed (Codex side): require a clean git tree, work on a `synapse/<slug>` branch, confirm twice (after plan; before applying changes), then run `synapse verify` and `synapse review`.
+- Prompts are **not hardcoded in scripts**. Codex must generate prompts and pass them via `synapse run --prompt-file ...`.
+- `workflow`/`feat` are end-to-end (Codex-orchestrated): `init → plan → (Gate) → run(drafts) → (Codex apply) → verify → run(audits) → deliver`.
+  - The **only required user confirmation** is the Gate after `plan` (scope + task_type + stack/toolchain + side effects + verify commands).
+  - After Gate confirmation, proceed automatically with no additional prompts.
+- `task_type` rules:
+  - If the user explicitly sets `--task-type`, respect it.
+  - If omitted: default to `fullstack` (info-complete; higher cost) and still present `frontend/backend/fullstack` options + Codex recommendation at the Gate.
+- Git safety:
+  - Prefer a clean working tree. If it's dirty, surface it at the Gate and ask how to proceed (stash/commit/abort).
+  - If the project is not a git repo, propose `git init` at the Gate (review quality is best with git).
 
 ## Global flags (common)
 
@@ -37,12 +46,13 @@ uv run --no-project python <SKILL_DIR>/scripts/synapse.py --project-dir <PROJECT
 
 ## Command map
 
-Run the Python entrypoint with the same subcommand:
+User-level commands (typed in Codex chat):
 
-- `init`, `plan`, `execute`, `verify`, `review`
 - `workflow`, `feat`
-- `frontend`, `backend`
-- `analyze`, `debug`, `optimize`, `test`, `enhance`
+
+Script-level subcommands (Codex runs via `uv`):
+
+- `init`, `pack`, `plan`, `run`, `verify`, `ui`
 
 ## Script guarantees
 
@@ -51,3 +61,4 @@ Run the Python entrypoint with the same subcommand:
 - `init` only writes: `AGENTS.md`, `.gitignore`, `./.synapse/**` (idempotent).
 - `verify` may create **project-local toolchain artifacts** (lockfiles, `.venv/`, `node_modules/`, build outputs) as a side effect.
 - External model calls use local `claude` + `gemini` CLIs in stream-json mode (`session_id` captured; resume supported).
+- `ui` starts a local read-only web viewer for `.synapse/**` (prompts/outputs/patches/logs/state).

@@ -24,7 +24,7 @@ def upsert_plan_file(
     plan_path: Path,
     slug: str,
     request: str,
-    context_pack_path: Path,
+    context_pack_path: Optional[Path],
     plan_text: str,
     sessions: dict[str, Any],
     extra: Optional[dict[str, Any]] = None,
@@ -34,7 +34,7 @@ def upsert_plan_file(
         "slug": slug,
         "created_at": utc_now_iso(),
         "request": request,
-        "context_pack": str(context_pack_path),
+        "context_pack": str(context_pack_path) if context_pack_path else None,
         "sessions": sessions,
     }
     if extra:
@@ -61,6 +61,30 @@ def upsert_plan_file(
         ]
     )
     write_text(plan_path, doc)
+
+
+def _replace_json_meta(markdown: str, meta: dict[str, Any]) -> str:
+    block = "\n".join(["```json", json.dumps(meta, ensure_ascii=False, indent=2, sort_keys=True), "```"])
+    pattern = re.compile(r"```json[ \t]*\r?\n(\{.*?\})[ \t]*\r?\n```", flags=re.DOTALL)
+    if not pattern.search(markdown):
+        raise ValueError("plan file is missing json meta block")
+    # Use a function replacement to avoid backslash escapes in replacement strings.
+    return pattern.sub(lambda _m: block, markdown, count=1)
+
+
+def update_plan_session(*, plan_path: Path, model: str, session_id: str) -> None:
+    if model not in ("gemini", "claude"):
+        return
+    text = read_text(plan_path)
+    meta = extract_json_meta(text)
+    if not meta:
+        raise ValueError("plan file json meta could not be parsed")
+    sessions = meta.get("sessions")
+    if not isinstance(sessions, dict):
+        sessions = {}
+    sessions[model] = session_id
+    meta["sessions"] = sessions
+    write_text(plan_path, _replace_json_meta(text, meta))
 
 
 def update_state(

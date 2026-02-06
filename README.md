@@ -40,8 +40,11 @@ Synapse 是一个 **Codex 主导**的多模型研发工作流模板（Codex + Cl
 - `./.synapse/context/`：context pack（git diff/status + rg 摘要 + snippets）
 - `./.synapse/logs/`：外部模型 stream-json 日志、verify 命令日志
 - `./.synapse/patches/`：草稿 diff、审计报告等
+- `./.synapse/prompts/`：Codex 生成并渲染后的 prompts（可审计/可复现）
 - `./.synapse/state.json`：最近一次命令/产物/会话信息（用于续跑）
 - `./.synapse/index.json`：plan 索引
+
+你可以用 `synapse ui` 打开本地只读 Web Viewer，浏览以上所有产物（不需要翻目录）。
 
 ---
 
@@ -60,11 +63,11 @@ Synapse 是一个 **Codex 主导**的多模型研发工作流模板（Codex + Cl
 | 阶段 | Codex（主控） | Claude | Gemini |
 |---|---|---|---|
 | `init` | 写入约束文件与布局 | 不调用 | 不调用 |
-| `plan` | 合并为最终可执行计划（对话中完成） | 主计划：架构/边界/风险/测试 | 仅 `frontend/fullstack`：UI/UX/可访问性计划 |
-| `execute` | 把 diff 当草稿，重写成最终代码（对话中完成） | 仅 `backend/fullstack`：产后端 diff 草稿 | 仅 `frontend/fullstack`：产前端 diff 草稿 |
+| `plan` | 生成 prompts + 合并为最终可执行计划（对话中完成） | 主计划：架构/边界/风险/测试 | 仅 `frontend/fullstack`：UI/UX/可访问性计划 |
+| `run (draft diff)` | 把 diff 当草稿，重写成最终代码（对话中完成） | 仅 `backend/fullstack`：产后端 diff 草稿 | 仅 `frontend/fullstack`：产前端 diff 草稿 |
 | `verify` | 运行并解读验证结果 | 不调用 | 不调用 |
-| `review` | 根据审计修正代码并复跑验证 | 总体审计：正确性/安全/边界/可维护性 | 仅 `frontend/fullstack`：UI/UX/可访问性审计 |
-| `workflow/feat` | 组织上述阶段（脚本负责产物落盘；落地改代码仍由 Codex 完成） | 见各阶段 | 见各阶段 |
+| `run (audit)` | 根据审计修正代码并复跑验证 | 总体审计：正确性/安全/边界/可维护性 | 仅 `frontend/fullstack`：UI/UX/可访问性审计 |
+| `workflow/feat` | 一条龙编排（在 **Codex 对话**中完成；脚本提供 `init/pack/plan/run/verify/ui` 原语） | 见各阶段 | 见各阶段 |
 
 ---
 
@@ -88,24 +91,31 @@ uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Projec
 # 2) 生成计划（写 task_type 到 plan meta）
 uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" plan --task-type fullstack "Your request here"
 
-# 3) 生成草稿 diff（不改产品代码，只落盘）
-uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" execute "<plan_path>"
+# 3) 生成草稿（外部模型）：由 Codex 写 prompts 后，用 `run` 调用 Claude/Gemini
+#    （示例中 `prompt-file`/`var-file` 仅展示形态；实际由 Codex 决定内容与注入变量）
+uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" run --model claude --phase plan --slug "<slug>" --prompt-file ".synapse/prompts/plan-claude.template.md" --plan-path "<plan_path>"
+uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" run --model gemini --phase plan --slug "<slug>" --prompt-file ".synapse/prompts/plan-gemini.template.md" --plan-path "<plan_path>"
 
 # 4) 由 Codex（主控）把草稿重写成最终代码后，跑验证与审计
 uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" verify
-uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" review --plan-path "<plan_path>"
+uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" pack --phase review --slug "<slug>" --query "git diff review"
+uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" run --model claude --phase review --slug "<slug>" --prompt-file ".synapse/prompts/review-claude.template.md" --plan-path "<plan_path>"
+uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" run --model gemini --phase review --slug "<slug>" --prompt-file ".synapse/prompts/review-gemini.template.md" --plan-path "<plan_path>"
+
+# 5) 打开本地只读 Web Viewer（浏览 `.synapse/**`）
+uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" ui
 ```
 
 ---
 
 ## “diff 当草稿”的落地方式（你关心的点）
 
-Synapse 的 `execute` 产物是 **draft diff**，建议的落地顺序是：
+Synapse 的 `run` 产物可以是 **draft diff**（例如 `--phase execute`），建议的落地顺序是：
 
 1) Codex 阅读 plan + 两份 draft diff（frontend/backed）+ 审计（如有）
 2) Codex 以项目真实代码为准，**重写**成生产级实现（而不是机械套用 diff）
 3) Codex 跑 `synapse verify`（自动探测）并修到绿
-4) Codex 跑 `synapse review`，根据审计再修、再 verify
+4) Codex 通过 `synapse run --phase review ...` 获取审计，根据审计再修、再 verify
 
 这么做的好处：
 
@@ -144,7 +154,7 @@ Synapse 的 `execute` 产物是 **draft diff**，建议的落地顺序是：
 ## Session / Resume
 
 - plan 文件 meta（JSON）里有 `sessions` 字段（如 `claude`、`gemini` 的 `session_id`）
-- `execute` 默认优先从 plan meta 读取并复用会话（降低重复投喂成本）
+- `synapse run` 会捕获 `session_id`（写入 `.synapse/state.json`），并可在提供 `--plan-path` 时回写到 plan meta `sessions.<model>`
 - CLI 支持：
   - `--resume-gemini <SESSION_ID>`
   - `--resume-claude <SESSION_ID>`
@@ -157,7 +167,11 @@ Synapse 的 `execute` 产物是 **draft diff**，建议的落地顺序是：
 关键入口：
 
 - `.codex/skills/synapse/scripts/synapse.py`：CLI 子命令定义
-- `.codex/skills/synapse/scripts/_synapse/cmd_workflow.py`：plan/execute/review/workflow
+- `.codex/skills/synapse/scripts/_synapse/cmd_init.py`：init
+- `.codex/skills/synapse/scripts/_synapse/cmd_pack.py`：pack（context pack）
+- `.codex/skills/synapse/scripts/_synapse/cmd_plan.py`：plan（plan stub + Gate）
+- `.codex/skills/synapse/scripts/_synapse/cmd_run.py`：run（外部模型运行器：prompt 由 Codex 提供）
+- `.codex/skills/synapse/scripts/_synapse/cmd_ui.py`：ui（本地 web viewer）
 - `.codex/skills/synapse/scripts/_synapse/cmd_verify.py`：verify 自动探测与执行
 - `.codex/skills/synapse/scripts/_synapse/context_pack.py`：context pack（git/rg/snippets）
 - `.codex/skills/synapse/scripts/_synapse/llm.py`：外部模型调用（stream-json 捕获 session）
@@ -166,4 +180,3 @@ Synapse 的 `execute` 产物是 **draft diff**，建议的落地顺序是：
 
 - 新增生态探测：优先只加“明确且低风险”的命令（比如官方 test 命令），避免盲目猜测
 - 为 verify 增加 “按文件变更范围缩小测试集” 的策略：先跑最窄，再跑全量
-

@@ -288,10 +288,11 @@ def extract_unified_diff(text: str) -> Optional[str]:
         diff = m.group(1).strip("\n") + "\n"
         if "diff --git" in diff or (diff.startswith("---") and "\n+++" in diff):
             return diff
-    # 1.5) raw '---/+++' style patch (no diff --git)
-    s = text.lstrip()
-    if s.startswith("--- ") and "\n+++ " in s and "\n@@ " in s:
-        return s.strip("\n") + "\n"
+    # 1.5) raw '---/+++' style patch (no diff --git), possibly preceded by commentary.
+    for m2 in re.finditer(r"^--- .*$", text, flags=re.MULTILINE):
+        s = text[m2.start() :].strip("\n")
+        if "\n+++ " in s and "\n@@ " in s:
+            return s + "\n"
     idx = text.find("diff --git")
     if idx != -1:
         return text[idx:].strip("\n") + "\n"

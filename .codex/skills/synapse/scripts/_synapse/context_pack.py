@@ -12,6 +12,7 @@ from .common import (
     read_text,
     run_cmd,
     truncate_bytes,
+    unique_path,
     write_text,
 )
 
@@ -74,8 +75,16 @@ def derive_rg_queries(query: str, *, max_queries: int) -> list[str]:
     return out
 
 
-def select_key_files(project_root: Path, *, max_files: int) -> list[Path]:
+def select_key_files(project_root: Path, *, max_files: int, extra_files: list[Path] | None = None) -> list[Path]:
     candidates: list[Path] = []
+
+    if extra_files:
+        for p in extra_files:
+            try:
+                if p.exists() and p.is_file():
+                    candidates.append(p)
+            except Exception:
+                continue
 
     preferred_names = [
         "AGENTS.md",
@@ -150,6 +159,8 @@ def build_context_pack(
     slug: str,
     phase: str,
     query: str,
+    rg_queries: list[str] | None = None,
+    include_files: list[Path] | None = None,
 ) -> Path:
     cfg = defaults.get("context_pack", {})
     rg_cfg = cfg.get("rg", {})
@@ -170,7 +181,7 @@ def build_context_pack(
     diff_max_lines = int(git_cfg.get("diff_max_lines", 2000))
     status_max_lines = int(git_cfg.get("status_max_lines", 300))
 
-    out_path = paths.context_dir / f"{slug}-{phase}.md"
+    out_path = unique_path(paths.context_dir / f"{slug}-{phase}.md")
     project_root = paths.project_root
     git_ok = is_git_repo(project_root)
 
@@ -226,7 +237,10 @@ def build_context_pack(
 
     parts.append("## ripgrep (summary)")
     parts.append("")
-    queries = derive_rg_queries(query, max_queries=rg_max_queries)
+    queries = rg_queries[:] if rg_queries else derive_rg_queries(query, max_queries=rg_max_queries)
+    queries = [q for q in queries if isinstance(q, str) and q.strip()]
+    if len(queries) > rg_max_queries:
+        queries = queries[:rg_max_queries]
     total_hits = 0
     for q in queries:
         if total_hits >= rg_max_total_matches:
@@ -275,7 +289,7 @@ def build_context_pack(
 
     parts.append("## Key files (snippets)")
     parts.append("")
-    key_files = select_key_files(project_root, max_files=max_files)
+    key_files = select_key_files(project_root, max_files=max_files, extra_files=include_files)
     if not key_files:
         parts.append("(none selected)")
     for p in key_files:

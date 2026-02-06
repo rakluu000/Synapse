@@ -1,0 +1,29 @@
+# `synapse run`
+
+Run an external model with a **Codex-provided prompt template**.
+
+## Usage
+
+```bash
+synapse run --model <claude|gemini> --slug <slug> [--phase <phase>] --prompt-file <path> [--plan-path <plan_path>] [--var KEY=VALUE] [--var-file KEY=PATH]
+```
+
+## Template variables
+
+- The prompt file may contain placeholders like `{{REQUEST}}`, `{{CONTEXT_PACK}}`, etc.
+- `--var KEY=VALUE` replaces `{{KEY}}` with `VALUE`.
+- `--var-file KEY=PATH` replaces `{{KEY}}` with the file contents at `PATH`.
+
+## Writes
+
+- `<project>/.synapse/prompts/<ts>-<slug>-<phase>-<model>.prompt.md` (rendered prompt)
+- `<project>/.synapse/patches/<ts>-<slug>-<phase>-<model>.md` (model output)
+- `<project>/.synapse/patches/<ts>-<slug>-<phase>-<model>.diff` (optional; only if a unified diff is extractable)
+- `<project>/.synapse/logs/<ts>-<slug>-<phase>-<model>-stream.jsonl`
+- `<project>/.synapse/state.json`
+
+## Notes
+
+- External models do not have filesystem/tool access; pass all required context via the prompt/template vars.
+- If `--plan-path` is provided and a `session_id` is captured, the plan meta `sessions.<model>` is updated.
+
