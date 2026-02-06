@@ -1,21 +1,21 @@
 # `synapse optimize`
 
-性能/质量优化：输出优化建议，必要时可让模型给出可落盘的 Unified Diff Patch（但默认只生成建议与补丁文件，不直接修改产品代码）。
+Claude proposes optimizations (may include a diff; extracted to a `.diff` file when possible). No code is applied automatically.
 
-## 用法
+## Usage
 
 ```bash
-synapse optimize <目标描述...>
+synapse optimize <goal...>
 ```
 
-## 主要产物
+## Models
+
+- Claude
+
+## Writes
 
 - `<project>/.synapse/context/<slug>-optimize.md`
+- `<project>/.synapse/logs/*-optimize-claude-stream.jsonl`
 - `<project>/.synapse/patches/<slug>-optimize-claude.md`
-- `<project>/.synapse/patches/<slug>-optimize-claude.diff`（若能提取）
-- `<project>/.synapse/logs/*`
-
-## 失败与恢复
-
-同 `analyze/debug`：失败不改代码，重跑即可。
-
+- `<project>/.synapse/patches/<slug>-optimize-claude.diff` (optional)
+- `<project>/.synapse/state.json`

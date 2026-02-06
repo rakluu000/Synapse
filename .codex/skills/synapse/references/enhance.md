@@ -1,19 +1,19 @@
 # `synapse enhance`
 
-Prompt 增强：把原始需求整理成更清晰、可执行、可验收的任务描述（默认不改代码）。
+Claude rewrites the raw request into an execution-ready task spec (no code changes).
 
-## 用法
+## Usage
 
 ```bash
-synapse enhance <原始需求文本...>
+synapse enhance <raw-request...>
 ```
 
-## 主要产物
+## Models
 
-- `<project>/.synapse/patches/<slug>-enhance-claude.md`：增强后的需求（可直接喂给 plan/workflow）
-- `<project>/.synapse/logs/*`：Claude stream-json 原始输出
+- Claude
 
-## 失败与恢复
+## Writes
 
-增强失败则保留原始输入；可重跑或直接进入 `synapse plan`。
-
+- `<project>/.synapse/logs/*-enhance-claude-stream.jsonl`
+- `<project>/.synapse/patches/<slug>-enhance-claude.md`
+- `<project>/.synapse/state.json`

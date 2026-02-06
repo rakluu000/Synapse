@@ -1,25 +1,25 @@
 # `synapse frontend`
 
-前端/UI 专项：用 **Gemini** 产出 Unified Diff Patch（草稿补丁），并落盘到 `./.synapse/patches/**`，再由 Codex（主控）重写为最终实现。
+Gemini generates a frontend draft diff (no code is applied automatically; Codex rewrites and applies final changes).
 
-## 用法
+## Usage
 
 ```bash
-synapse frontend <UI 需求文本...>
+synapse frontend <request...>
 ```
 
-## 主要产物
+## Models
 
-- `<project>/.synapse/context/<slug>-frontend.md`：上下文包
-- `<project>/.synapse/patches/<slug>-frontend-gemini.md`：模型原始文本
-- `<project>/.synapse/patches/<slug>-frontend-gemini.diff`：提取出的 unified diff（如可提取）
-- `<project>/.synapse/logs/*`：Gemini stream-json 原始输出
+- Gemini
 
-## 会话复用
+## Writes
 
-- 若提供 `--resume <SESSION_ID>`（或从 `.synapse/state.json` / plan 文件读取到 session id），会优先复用会话，降低上下文重复投喂。
+- `<project>/.synapse/context/<slug>-frontend.md`
+- `<project>/.synapse/logs/*-frontend-gemini-stream.jsonl`
+- `<project>/.synapse/patches/<slug>-frontend-gemini.md`
+- `<project>/.synapse/patches/<slug>-frontend-gemini.diff` (optional)
+- `<project>/.synapse/state.json`
 
-## 失败与恢复
+## Resume
 
-- patch 提取失败：保留 `*.md` 原文；可手动复制 diff 或重跑
-- 会话丢失：重跑不影响既有产物；会生成新日志与新 patch 文件
+- Use global `--resume-gemini <SESSION_ID>` (or alias `--resume <SESSION_ID>`).

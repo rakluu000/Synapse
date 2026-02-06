@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import sys
 
-from _synapse.cmd_git import cmd_clean_branches, cmd_commit, cmd_rollback, cmd_worktree
 from _synapse.cmd_tasks import (
     cmd_analyze,
     cmd_backend,
@@ -110,44 +109,6 @@ def build_parser() -> argparse.ArgumentParser:
     sub_enhance = sub.add_parser("enhance")
     sub_enhance.add_argument("request", nargs=argparse.REMAINDER)
     sub_enhance.set_defaults(func=cmd_enhance)
-
-    sub_commit = sub.add_parser("commit")
-    sub_commit.add_argument("--no-verify", action="store_true")
-    sub_commit.add_argument("--all", action="store_true")
-    sub_commit.add_argument("--amend", action="store_true")
-    sub_commit.add_argument("--signoff", action="store_true")
-    sub_commit.add_argument("--emoji", action="store_true")
-    sub_commit.add_argument("--scope", default=None)
-    sub_commit.add_argument("--type", default=None)
-    sub_commit.add_argument("--yes", action="store_true")
-    sub_commit.set_defaults(func=cmd_commit)
-
-    sub_rollback = sub.add_parser("rollback")
-    sub_rollback.add_argument("--target", required=True)
-    sub_rollback.add_argument("--mode", choices=["reset", "revert"], default="reset")
-    sub_rollback.add_argument("--branch", default=None)
-    sub_rollback.add_argument("--dry-run", action="store_true", default=True)
-    sub_rollback.add_argument("--yes", action="store_true")
-    sub_rollback.set_defaults(func=cmd_rollback)
-
-    sub_clean = sub.add_parser("clean-branches")
-    sub_clean.add_argument("--base", default=None)
-    sub_clean.add_argument("--stale", type=int, default=None)
-    sub_clean.add_argument("--remote", action="store_true")
-    sub_clean.add_argument("--dry-run", action="store_true", default=True)
-    sub_clean.add_argument("--yes", action="store_true")
-    sub_clean.add_argument("--force", action="store_true")
-    sub_clean.set_defaults(func=cmd_clean_branches)
-
-    sub_wt = sub.add_parser("worktree")
-    sub_wt.add_argument("subcmd", choices=["add", "list", "remove", "prune", "migrate"])
-    sub_wt.add_argument("path", nargs="?", default=None)
-    sub_wt.add_argument("-b", "--branch", dest="branch", default=None)
-    sub_wt.add_argument("--detach", action="store_true")
-    sub_wt.add_argument("--from", dest="from_path", default=None)
-    sub_wt.add_argument("--force", action="store_true")
-    sub_wt.add_argument("--yes", action="store_true")
-    sub_wt.set_defaults(func=cmd_worktree)
 
     return p
 
