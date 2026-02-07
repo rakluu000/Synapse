@@ -39,7 +39,9 @@ def model_argv(model: str, prompt: str, *, resume: Optional[str]) -> list[str]:
         # NOTE: keep CLI args short to avoid Windows command line length limits.
         # Provide the full prompt via stdin (see run_model_once).
         cmd = "gemini.cmd" if os.name == "nt" else "gemini"
-        argv = [cmd, "-o", "stream-json", "-y", "-p", ""]
+        # Never auto-approve actions. In headless mode, Gemini CLI will deny most
+        # mutating tools by policy rather than prompting interactively.
+        argv = [cmd, "-o", "stream-json", "--approval-mode", "default", "-p", ""]
         if resume:
             argv += ["--resume", resume]
         return argv
@@ -51,6 +53,11 @@ def model_argv(model: str, prompt: str, *, resume: Optional[str]) -> list[str]:
             "stream-json",
             "--verbose",
             "--disable-slash-commands",
+            "--permission-mode",
+            "plan",
+            "--tools",
+            "",
+            "--strict-mcp-config",
         ]
         if resume:
             argv += ["--resume", resume]
@@ -233,7 +240,7 @@ def run_model_with_retries(
 ) -> ModelRun:
     runner = defaults.get("runner", {})
     timeout_seconds = int(runner.get("timeout_seconds", 3600))
-    retries = int(runner.get("retries", 2))
+    retries = max(0, int(runner.get("retries", 2)))
     backoff_cfg = runner.get("retry_backoff", {})
     base_seconds = float(backoff_cfg.get("base_seconds", 2))
     max_seconds = float(backoff_cfg.get("max_seconds", 30))

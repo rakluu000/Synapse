@@ -25,5 +25,5 @@ synapse run --model <claude|gemini> --slug <slug> [--phase <phase>] --prompt-fil
 
 ## Notes
 
-- External models do not have filesystem/tool access; pass all required context via the prompt/template vars.
+- Do not rely on model filesystem/tool access. Synapse runs models headlessly and never auto-approves actions (Claude is run with tools disabled; Gemini tool attempts may be denied by the model CLI policy). Pass all required context via the prompt/template vars.
 - If `--plan-path` is provided and a `session_id` is captured, the plan meta `sessions.<model>` is updated.

@@ -62,5 +62,5 @@ Script-level subcommands (Codex runs via `uv`):
 - Writes are guarded by `assets/defaults.json:safety.allowed_write_roots` (hard fail if a write would escape these roots).
 - `init` only writes: `AGENTS.md`, `.gitignore`, `./.synapse/**` (idempotent).
 - `verify` may create **project-local toolchain artifacts** (lockfiles, `.venv/`, `node_modules/`, build outputs) as a side effect.
-- External model calls use local `claude` + `gemini` CLIs in stream-json mode (`session_id` captured; resume supported).
+- External model calls use local `claude` + `gemini` CLIs in stream-json mode (`session_id` captured; resume supported). Synapse never enables “auto-approve” modes (Gemini runs with `--approval-mode default`; Claude runs with `--permission-mode plan --tools "" --strict-mcp-config`).
 - `ui` starts a local read-only web viewer for `.synapse/**` (prompts/outputs/patches/logs/state).

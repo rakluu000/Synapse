@@ -709,8 +709,10 @@ def cmd_ui(args: argparse.Namespace) -> int:
             if parsed.path == "/api/file":
                 qs = urllib.parse.parse_qs(parsed.query)
                 raw = (qs.get("path") or [""])[0]
-                rel = Path(raw.replace("/", "\\"))
-                if rel.is_absolute():
+                # Tree paths are returned with POSIX separators ("/"). Path() accepts
+                # forward slashes on all platforms; avoid hard-coding Windows "\".
+                rel = Path(raw)
+                if rel.is_absolute() or rel.anchor:
                     return self._send(400, b"absolute path not allowed\n", content_type="text/plain; charset=utf-8")
                 full = (project_root / rel).resolve()
                 if not _within_synapse(syn_root, full):

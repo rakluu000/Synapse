@@ -176,7 +176,7 @@ def _detect_steps(project_root: Path, *, defaults: dict[str, Any], no_install: b
         steps.append(VerifyStep(name="go:test", argv=["go", "test", "./..."], cwd=project_root, timeout_seconds=timeout_seconds, kind="test"))
 
     # .NET
-    if list(project_root.glob("*.sln")) or list(project_root.glob("*.csproj")) or list(project_root.glob("*.fsproj")):
+    if any(project_root.glob("*.sln")) or any(project_root.glob("*.csproj")) or any(project_root.glob("*.fsproj")):
         steps.append(VerifyStep(name="dotnet:test", argv=["dotnet", "test"], cwd=project_root, timeout_seconds=timeout_seconds, kind="test"))
 
     return steps
