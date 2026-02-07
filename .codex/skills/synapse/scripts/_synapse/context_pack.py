@@ -75,14 +75,36 @@ def derive_rg_queries(query: str, *, max_queries: int) -> list[str]:
     return out
 
 
+def _is_sensitive_file_candidate(path: Path) -> bool:
+    """
+    Best-effort filter to avoid accidentally including obvious secret files in
+    auto-generated context packs.
+
+    Explicit `--include-file` entries are still allowed (handled by caller).
+    """
+    name = path.name.lower()
+    if name in {".env", ".npmrc", ".pypirc", ".netrc", ".git-credentials"}:
+        return True
+    if name.startswith(".env."):
+        return True
+    if name in {"id_rsa", "id_dsa", "id_ecdsa", "id_ed25519"}:
+        return True
+    ext = path.suffix.lower()
+    if ext in {".pem", ".key", ".p12", ".pfx", ".kdbx"}:
+        return True
+    return False
+
+
 def select_key_files(project_root: Path, *, max_files: int, extra_files: list[Path] | None = None) -> list[Path]:
     candidates: list[Path] = []
+    explicit: set[Path] = set()
 
     if extra_files:
         for p in extra_files:
             try:
                 if p.exists() and p.is_file():
                     candidates.append(p)
+                    explicit.add(p.resolve())
             except Exception:
                 continue
 
@@ -103,6 +125,8 @@ def select_key_files(project_root: Path, *, max_files: int, extra_files: list[Pa
     for name in preferred_names:
         p = project_root / name
         if p.exists() and p.is_file():
+            if p.resolve() not in explicit and _is_sensitive_file_candidate(p):
+                continue
             candidates.append(p)
 
     if is_git_repo(project_root):
@@ -117,6 +141,8 @@ def select_key_files(project_root: Path, *, max_files: int, extra_files: list[Pa
                         path_part = path_part.split(" -> ", 1)[1].strip()
                     p = project_root / path_part
                     if p.exists() and p.is_file():
+                        if p.resolve() not in explicit and _is_sensitive_file_candidate(p):
+                            continue
                         candidates.append(p)
         except Exception:
             pass
@@ -193,6 +219,7 @@ def build_context_pack(
     parts.append(f"- project_root: {project_root}")
     parts.append(f"- git_repo: {git_ok}")
     parts.append(f"- query: {query}")
+    parts.append("- note: context packs may include sensitive data (git diff / file snippets); review before sharing")
     parts.append("")
 
     if git_ok:
@@ -238,6 +265,7 @@ def build_context_pack(
 
     parts.append("## ripgrep (summary)")
     parts.append("")
+    derived_queries = not rg_queries
     queries = rg_queries[:] if rg_queries else derive_rg_queries(query, max_queries=rg_max_queries)
     queries = [q for q in queries if isinstance(q, str) and q.strip()]
     if len(queries) > rg_max_queries:
@@ -249,20 +277,25 @@ def build_context_pack(
         parts.append(f"### `rg -n {q!r}`")
         parts.append("")
         try:
+            rg_argv = [
+                "rg",
+                "-n",
+                "--max-depth",
+                str(rg_max_depth),
+                "--max-filesize",
+                rg_max_filesize,
+                "--max-count",
+                str(max(1, rg_max_matches_per_query // 10)),
+                "--glob",
+                "!**/.synapse/**",
+            ]
+            if derived_queries:
+                # Derived tokens frequently include '.', '/', etc. Treat them as
+                # fixed strings to reduce noise and accidental regex blow-ups.
+                rg_argv.append("-F")
+            rg_argv += ["--", q]
             rg = run_cmd(
-                [
-                    "rg",
-                    "-n",
-                    "--max-depth",
-                    str(rg_max_depth),
-                    "--max-filesize",
-                    rg_max_filesize,
-                    "--max-count",
-                    str(max(1, rg_max_matches_per_query // 10)),
-                    "--glob",
-                    "!**/.synapse/**",
-                    q,
-                ],
+                rg_argv,
                 cwd=project_root,
                 timeout_seconds=60,
             )

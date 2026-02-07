@@ -14,6 +14,26 @@ class SynapseError(RuntimeError):
     pass
 
 
+def _is_windows_reserved_name(name: str) -> bool:
+    """
+    Windows device names are reserved as filenames, even with extensions:
+    CON, PRN, AUX, NUL, COM1..COM9, LPT1..LPT9.
+    """
+    if os.name != "nt":
+        return False
+    n = (name or "").strip().lower()
+    if not n:
+        return False
+    base = n.split(".", 1)[0]
+    if base in {"con", "prn", "aux", "nul"}:
+        return True
+    if base.startswith("com") and base[3:].isdigit():
+        return 1 <= int(base[3:]) <= 9
+    if base.startswith("lpt") and base[3:].isdigit():
+        return 1 <= int(base[3:]) <= 9
+    return False
+
+
 @dataclass(frozen=True)
 class WriteGuard:
     project_root: Path
@@ -185,6 +205,17 @@ def synapse_paths(project_root: Path) -> SynapsePaths:
 
 
 def ensure_synapse_layout(paths: SynapsePaths, *, guard: WriteGuard | None = None) -> None:
+    # IMPORTANT: also guard directory creation. If `.synapse` is a symlink/junction
+    # pointing outside the project root, mkdir would otherwise create dirs outside
+    # the repo before later writes are blocked.
+    if guard:
+        guard.assert_allowed(paths.synapse_dir)
+        guard.assert_allowed(paths.plan_dir)
+        guard.assert_allowed(paths.context_dir)
+        guard.assert_allowed(paths.logs_dir)
+        guard.assert_allowed(paths.patches_dir)
+        guard.assert_allowed(paths.prompts_dir)
+
     safe_mkdir(paths.plan_dir)
     safe_mkdir(paths.context_dir)
     safe_mkdir(paths.logs_dir)
@@ -231,6 +262,10 @@ def slugify(text: str, *, max_len: int = 48) -> str:
         text = "task"
     if len(text) > max_len:
         text = text[:max_len].rstrip("-")
+    if _is_windows_reserved_name(text):
+        text = f"task-{text}"
+        if len(text) > max_len:
+            text = text[:max_len].rstrip("-")
     return text or "task"
 
 

@@ -6,6 +6,7 @@ import queue
 import random
 import re
 import subprocess
+import shutil
 import threading
 import time
 from dataclasses import dataclass
@@ -47,8 +48,11 @@ def model_argv(model: str, prompt: str, *, resume: Optional[str]) -> list[str]:
             argv += ["--resume", resume]
         return argv
     if model == "claude":
+        cmd = "claude"
+        if os.name == "nt" and shutil.which("claude.cmd"):
+            cmd = "claude.cmd"
         argv = [
-            "claude",
+            cmd,
             "-p",
             "--output-format",
             "stream-json",
@@ -339,6 +343,8 @@ def run_model_with_retries(
         )
         run = run_model_once(run)
         last_run = run
+        if run.exit_code == 0 and run.output_text.strip() == "" and not run.error:
+            run.error = "exit_code=0 but no assistant output parsed from stream-json"
         ok = run.exit_code == 0 and run.output_text.strip() != ""
         if ok:
             return run

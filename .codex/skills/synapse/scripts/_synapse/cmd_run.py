@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -10,6 +11,7 @@ from .common import (
     WriteGuard,
     find_project_root,
     load_defaults,
+    slugify,
     synapse_paths,
     unique_path,
     utc_now_iso,
@@ -56,10 +58,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     phase = (getattr(args, "phase", None) or "run").strip()
     if not phase:
         raise SynapseError("run requires a non-empty --phase")
+    phase = slugify(phase, max_len=24)
 
     slug = (getattr(args, "slug", None) or "").strip()
     if not slug:
         raise SynapseError("run requires --slug")
+    slug = slugify(slug)
 
     prompt_file_raw = getattr(args, "prompt_file", None)
     if not isinstance(prompt_file_raw, str) or not prompt_file_raw.strip():
@@ -101,6 +105,14 @@ def cmd_run(args: argparse.Namespace) -> int:
         slug=slug,
         phase=phase,
     )
+    if run.exit_code == 0 and (run.output_text or "").strip() == "":
+        # Keep stdout stable (used by humans and potentially by a controller);
+        # emit troubleshooting hints on stderr.
+        print(
+            "synapse run warning: model returned exit_code=0 but no assistant output was parsed from stream-json; "
+            f"inspect log: {run.log_path}",
+            file=sys.stderr,
+        )
 
     out_md = unique_path(paths.patches_dir / f"{ts}-{slug}-{phase}-{model}.md")
     write_text(out_md, run.output_text.strip() + "\n", guard=guard)
@@ -126,6 +138,8 @@ def cmd_run(args: argparse.Namespace) -> int:
             "session_id": run.session_id,
             "log": str(run.log_path),
             "exit_code": run.exit_code,
+            "error": run.error,
+            "duration_seconds": run.duration_seconds,
             "at": utc_now_iso(),
         },
         sessions_by_slug=sessions_by_slug,

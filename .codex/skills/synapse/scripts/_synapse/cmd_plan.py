@@ -75,7 +75,8 @@ def cmd_plan(args: argparse.Namespace) -> int:
     if task_type not in ("frontend", "backend", "fullstack"):
         task_type = "fullstack"
 
-    slug = getattr(args, "slug", None) or slugify(request)
+    slug_raw = getattr(args, "slug", None)
+    slug = slugify(str(slug_raw)) if slug_raw else slugify(request)
     plan_path = paths.plan_dir / f"{slug}.md"
     backup_path: Optional[Path] = None
     if plan_path.exists():

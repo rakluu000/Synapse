@@ -30,6 +30,8 @@ def cmd_pack(args: argparse.Namespace) -> int:
     phase = (getattr(args, "phase", None) or "pack").strip()
     if not phase:
         raise SynapseError("pack requires a non-empty --phase")
+    # Phase is used in filenames; normalize to something file-safe.
+    phase = slugify(phase, max_len=24)
 
     query = getattr(args, "query", None)
     query = str(query) if query is not None else ""
@@ -40,7 +42,11 @@ def cmd_pack(args: argparse.Namespace) -> int:
         if query.strip():
             slug = slugify(query)
         else:
-            slug = _dt.datetime.now().strftime(f"{phase}-%Y%m%d-%H%M%S")
+            # Do not include user-provided phase in the strftime format string.
+            slug = f"{phase}-{_dt.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    else:
+        # Slug is used in filenames; normalize to something file-safe.
+        slug = slugify(slug)
 
     rg_queries = list(getattr(args, "rg_query", []) or [])
     include_files_raw = list(getattr(args, "include_file", []) or [])
