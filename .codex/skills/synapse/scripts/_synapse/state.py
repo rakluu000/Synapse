@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import Any, Optional
 
-from .common import SynapsePaths, read_json, read_text, utc_now_iso, write_json_atomic, write_text
+from .common import SynapsePaths, WriteGuard, read_json, read_text, utc_now_iso, write_json_atomic, write_text
 
 
 def extract_json_meta(markdown: str) -> dict[str, Any]:
@@ -28,6 +28,7 @@ def upsert_plan_file(
     plan_text: str,
     sessions: dict[str, Any],
     extra: Optional[dict[str, Any]] = None,
+    guard: WriteGuard | None = None,
 ) -> None:
     meta: dict[str, Any] = {
         "synapse_version": 1,
@@ -60,7 +61,7 @@ def upsert_plan_file(
             "",
         ]
     )
-    write_text(plan_path, doc)
+    write_text(plan_path, doc, guard=guard)
 
 
 def _replace_json_meta(markdown: str, meta: dict[str, Any]) -> str:
@@ -72,7 +73,7 @@ def _replace_json_meta(markdown: str, meta: dict[str, Any]) -> str:
     return pattern.sub(lambda _m: block, markdown, count=1)
 
 
-def update_plan_session(*, plan_path: Path, model: str, session_id: str) -> None:
+def update_plan_session(*, plan_path: Path, model: str, session_id: str, guard: WriteGuard | None = None) -> None:
     if model not in ("gemini", "claude"):
         return
     text = read_text(plan_path)
@@ -84,7 +85,7 @@ def update_plan_session(*, plan_path: Path, model: str, session_id: str) -> None
         sessions = {}
     sessions[model] = session_id
     meta["sessions"] = sessions
-    write_text(plan_path, _replace_json_meta(text, meta))
+    write_text(plan_path, _replace_json_meta(text, meta), guard=guard)
 
 
 def update_state(
@@ -92,6 +93,7 @@ def update_state(
     *,
     last: dict[str, Any],
     sessions_by_slug: Optional[dict[str, dict[str, str]]] = None,
+    guard: WriteGuard | None = None,
 ) -> None:
     state = read_json(paths.state_json)
     if not isinstance(state, dict):
@@ -111,10 +113,10 @@ def update_state(
             if isinstance(by_slug, dict):
                 by_slug.update(mapping)
 
-    write_json_atomic(paths.state_json, state)
+    write_json_atomic(paths.state_json, state, guard=guard)
 
 
-def rebuild_index(paths: SynapsePaths) -> None:
+def rebuild_index(paths: SynapsePaths, *, guard: WriteGuard | None = None) -> None:
     plans: list[dict[str, Any]] = []
     for p in sorted(paths.plan_dir.glob("*.md")):
         try:
@@ -131,4 +133,4 @@ def rebuild_index(paths: SynapsePaths) -> None:
                 "sessions": sessions,
             }
         )
-    write_json_atomic(paths.index_json, {"version": 1, "updated_at": utc_now_iso(), "plans": plans})
+    write_json_atomic(paths.index_json, {"version": 1, "updated_at": utc_now_iso(), "plans": plans}, guard=guard)

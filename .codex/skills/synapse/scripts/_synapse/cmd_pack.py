@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .common import (
     SynapseError,
+    WriteGuard,
     find_project_root,
     load_defaults,
     slugify,
@@ -23,7 +24,8 @@ def cmd_pack(args: argparse.Namespace) -> int:
 
     from .common import ensure_synapse_layout
 
-    ensure_synapse_layout(paths)
+    guard = WriteGuard.from_defaults(project_root=project_root, defaults=defaults)
+    ensure_synapse_layout(paths, guard=guard)
 
     phase = (getattr(args, "phase", None) or "pack").strip()
     if not phase:
@@ -55,9 +57,10 @@ def cmd_pack(args: argparse.Namespace) -> int:
         query=query,
         rg_queries=rg_queries if rg_queries else None,
         include_files=include_files if include_files else None,
+        guard=guard,
     )
 
-    rebuild_index(paths)
+    rebuild_index(paths, guard=guard)
     update_state(
         paths,
         last={
@@ -68,6 +71,7 @@ def cmd_pack(args: argparse.Namespace) -> int:
             "context_pack": str(context_pack),
             "at": utc_now_iso(),
         },
+        guard=guard,
     )
 
     print(f"slug: {slug}")
@@ -76,4 +80,3 @@ def cmd_pack(args: argparse.Namespace) -> int:
         print(f"query: {query.strip()}")
     print(f"context_pack: {context_pack}")
     return 0
-

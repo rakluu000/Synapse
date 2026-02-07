@@ -3,14 +3,14 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .common import read_text, write_text
+from .common import WriteGuard, read_text, write_text
 
 
 SYNAPSE_BLOCK_BEGIN = "<!-- SYNAPSE-BEGIN -->"
 SYNAPSE_BLOCK_END = "<!-- SYNAPSE-END -->"
 
 
-def ensure_gitignore(project_root: Path) -> None:
+def ensure_gitignore(project_root: Path, *, guard: WriteGuard | None = None) -> None:
     gitignore = project_root / ".gitignore"
     line = "/.synapse/"
     if gitignore.exists():
@@ -22,10 +22,10 @@ def ensure_gitignore(project_root: Path) -> None:
         if new_text and not new_text.endswith("\n"):
             new_text += "\n"
         new_text += line + "\n"
-        write_text(gitignore, new_text)
+        write_text(gitignore, new_text, guard=guard)
         return
 
-    write_text(gitignore, line + "\n")
+    write_text(gitignore, line + "\n", guard=guard)
 
 
 def render_synapse_block() -> str:
@@ -60,7 +60,7 @@ def render_synapse_block() -> str:
     )
 
 
-def ensure_agents_md(project_root: Path) -> None:
+def ensure_agents_md(project_root: Path, *, guard: WriteGuard | None = None) -> None:
     agents = project_root / "AGENTS.md"
     block = render_synapse_block()
 
@@ -80,7 +80,7 @@ def ensure_agents_md(project_root: Path) -> None:
                 block,
             ]
         )
-        write_text(agents, base)
+        write_text(agents, base, guard=guard)
         return
 
     text = read_text(agents)
@@ -90,7 +90,7 @@ def ensure_agents_md(project_root: Path) -> None:
             flags=re.DOTALL,
         )
         new_text = pattern.sub(block, text).rstrip() + "\n"
-        write_text(agents, new_text)
+        write_text(agents, new_text, guard=guard)
         return
 
-    write_text(agents, text.rstrip() + "\n\n" + block)
+    write_text(agents, text.rstrip() + "\n\n" + block, guard=guard)

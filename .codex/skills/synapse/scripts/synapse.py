@@ -16,7 +16,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="synapse.py")
     p.add_argument("--project-dir", default=".", help="Directory inside the target project (default: .)")
     # Back-compat: --resume is treated as --resume-gemini.
-    p.add_argument("--resume", dest="resume_gemini", default=None, help="Gemini session id to resume")
+    p.add_argument("--resume", dest="resume", default=None, help="Back-compat alias for --resume-gemini (Gemini session id)")
     p.add_argument("--resume-gemini", dest="resume_gemini", default=None, help="Gemini session id to resume")
     p.add_argument("--resume-claude", dest="resume_claude", default=None, help="Claude session id to resume")
 
@@ -75,6 +75,15 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str]) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    # Argparse will silently "last-wins" if two options share the same dest. We keep
+    # --resume for back-compat, but treat it as an alias and validate conflicts.
+    resume_alias = getattr(args, "resume", None)
+    resume_gemini = getattr(args, "resume_gemini", None)
+    if resume_alias and resume_gemini and resume_alias != resume_gemini:
+        print("synapse error: both --resume and --resume-gemini were provided with different values", file=sys.stderr)
+        return 2
+    if resume_alias and not resume_gemini:
+        args.resume_gemini = resume_alias
     try:
         return int(args.func(args))
     except SynapseError as e:

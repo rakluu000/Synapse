@@ -17,4 +17,4 @@ synapse pack [--phase <label>] [--slug <slug>] [--query <text>] [--rg-query <q>.
 
 - `<project>/.synapse/context/<unique>.md`
 - `<project>/.synapse/state.json`
-
+- `<project>/.synapse/index.json`

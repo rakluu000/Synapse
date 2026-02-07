@@ -6,17 +6,20 @@ from typing import Optional
 
 from .common import (
     SynapseError,
+    WriteGuard,
     find_project_root,
     load_defaults,
     slugify,
     synapse_paths,
+    unique_path,
     utc_now_iso,
+    write_text,
 )
 from .context_pack import build_context_pack
 from .state import rebuild_index, update_state, upsert_plan_file
 
 
-def _gate_stub(*, request: str) -> str:
+def _gate_stub() -> str:
     return "\n".join(
         [
             "## Gate (Codex) — single confirmation point",
@@ -61,7 +64,8 @@ def cmd_plan(args: argparse.Namespace) -> int:
 
     from .common import ensure_synapse_layout
 
-    ensure_synapse_layout(paths)
+    guard = WriteGuard.from_defaults(project_root=project_root, defaults=defaults)
+    ensure_synapse_layout(paths, guard=guard)
 
     request = " ".join(args.request).strip()
     if not request:
@@ -73,6 +77,14 @@ def cmd_plan(args: argparse.Namespace) -> int:
 
     slug = getattr(args, "slug", None) or slugify(request)
     plan_path = paths.plan_dir / f"{slug}.md"
+    backup_path: Optional[Path] = None
+    if plan_path.exists():
+        backup_path = unique_path(plan_path.with_suffix(plan_path.suffix + ".bak"))
+        try:
+            write_text(backup_path, plan_path.read_text(encoding="utf-8", errors="replace"), guard=guard)
+        except Exception as e:
+            raise SynapseError(f"Failed to backup existing plan file: {type(e).__name__}: {e}") from e
+        print(f"backup: {backup_path}")
 
     rg_queries = list(getattr(args, "rg_query", []) or [])
     include_files_raw = list(getattr(args, "include_file", []) or [])
@@ -91,6 +103,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
             query=request,
             rg_queries=rg_queries if rg_queries else None,
             include_files=include_files if include_files else None,
+            guard=guard,
         )
 
     plan_text = "\n".join(
@@ -103,7 +116,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
             "",
             "(TBD: run `synapse run --model gemini ...` and paste/summarize here; skip if backend-only.)",
             "",
-            _gate_stub(request=request),
+            _gate_stub(),
         ]
     ).strip()
 
@@ -115,9 +128,10 @@ def cmd_plan(args: argparse.Namespace) -> int:
         plan_text=plan_text,
         sessions={},
         extra={"task_type": task_type},
+        guard=guard,
     )
 
-    rebuild_index(paths)
+    rebuild_index(paths, guard=guard)
     update_state(
         paths,
         last={
@@ -126,8 +140,10 @@ def cmd_plan(args: argparse.Namespace) -> int:
             "task_type": task_type,
             "plan_path": str(plan_path),
             "context_pack": str(context_pack) if context_pack else None,
+            "backup_plan": str(backup_path) if backup_path else None,
             "at": utc_now_iso(),
         },
+        guard=guard,
     )
 
     print(f"slug: {slug}")

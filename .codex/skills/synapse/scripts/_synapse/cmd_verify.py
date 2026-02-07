@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 from .common import (
     SynapseError,
+    WriteGuard,
     find_project_root,
     load_defaults,
     run_cmd,
@@ -17,6 +18,7 @@ from .common import (
     synapse_paths,
     unique_path,
     utc_now_iso,
+    write_text,
 )
 from .state import rebuild_index, update_state
 
@@ -42,11 +44,11 @@ class VerifyStepResult:
     error: Optional[str]
 
 
-def _ensure_layout(project_root: Path):
+def _ensure_layout(project_root: Path, *, guard: WriteGuard | None):
     from .common import ensure_synapse_layout
 
     paths = synapse_paths(project_root)
-    ensure_synapse_layout(paths)
+    ensure_synapse_layout(paths, guard=guard)
     return paths
 
 
@@ -180,7 +182,16 @@ def _detect_steps(project_root: Path, *, defaults: dict[str, Any], no_install: b
     return steps
 
 
-def _write_verify_log(log_path: Path, *, step: VerifyStep, exit_code: Optional[int], stdout: str, stderr: str, error: Optional[str]) -> None:
+def _write_verify_log(
+    log_path: Path,
+    *,
+    step: VerifyStep,
+    exit_code: Optional[int],
+    stdout: str,
+    stderr: str,
+    error: Optional[str],
+    guard: WriteGuard | None,
+) -> None:
     parts: list[str] = []
     parts.append(f"step: {step.name}")
     parts.append(f"kind: {step.kind}")
@@ -199,13 +210,14 @@ def _write_verify_log(log_path: Path, *, step: VerifyStep, exit_code: Optional[i
         parts.append("### STDERR")
         parts.append(stderr.rstrip())
         parts.append("")
-    log_path.write_text("\n".join(parts).rstrip() + "\n", encoding="utf-8", newline="\n")
+    write_text(log_path, "\n".join(parts).rstrip() + "\n", guard=guard)
 
 
 def cmd_verify(args: argparse.Namespace) -> int:
     defaults = load_defaults()
     project_root = find_project_root(Path(args.project_dir))
-    paths = _ensure_layout(project_root)
+    guard = WriteGuard.from_defaults(project_root=project_root, defaults=defaults)
+    paths = _ensure_layout(project_root, guard=guard)
 
     dry_run = bool(getattr(args, "dry_run", False))
     no_install = bool(getattr(args, "no_install", False))
@@ -214,7 +226,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
     steps = _detect_steps(project_root, defaults=defaults, no_install=no_install)
     if not steps:
         print("verify: no recognizable toolchain found (nothing to run).")
-        update_state(paths, last={"command": "verify", "at": utc_now_iso(), "results": [], "note": "no steps"})
+        update_state(paths, last={"command": "verify", "at": utc_now_iso(), "results": [], "note": "no steps"}, guard=guard)
         return 0
 
     ts = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -238,8 +250,12 @@ def cmd_verify(args: argparse.Namespace) -> int:
                     error=None,
                 )
             )
-        rebuild_index(paths)
-        update_state(paths, last={"command": "verify", "at": utc_now_iso(), "dry_run": True, "results": [asdict(r) for r in results]})
+        rebuild_index(paths, guard=guard)
+        update_state(
+            paths,
+            last={"command": "verify", "at": utc_now_iso(), "dry_run": True, "results": [asdict(r) for r in results]},
+            guard=guard,
+        )
         return 0
 
     ok = True
@@ -268,7 +284,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
         duration = time.time() - start
         try:
-            _write_verify_log(log_path, step=step, exit_code=exit_code, stdout=stdout, stderr=stderr, error=error)
+            _write_verify_log(log_path, step=step, exit_code=exit_code, stdout=stdout, stderr=stderr, error=error, guard=guard)
         except Exception as e:
             # If logging fails, still report the primary error.
             error = (error + " | " if error else "") + f"log_error: {type(e).__name__}: {e}"
@@ -291,7 +307,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
         if status != "OK" and not keep_going:
             break
 
-    rebuild_index(paths)
+    rebuild_index(paths, guard=guard)
     update_state(
         paths,
         last={
@@ -299,7 +315,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
             "at": utc_now_iso(),
             "results": [asdict(r) for r in results],
         },
+        guard=guard,
     )
 
     return 0 if ok else 2
-

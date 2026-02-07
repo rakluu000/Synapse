@@ -7,13 +7,12 @@ import re
 import subprocess
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 import os
 from pathlib import Path
 from typing import Any, Optional
 
-from .common import SynapseError, safe_mkdir, synapse_paths
+from .common import SynapseError, WriteGuard, safe_mkdir, synapse_paths
 
 
 @dataclass
@@ -24,11 +23,15 @@ class ModelRun:
     resume: Optional[str]
     timeout_seconds: int
     log_path: Path
+    max_line_bytes: int
+    guard: Optional[WriteGuard] = None
     output_text: str = ""
     session_id: Optional[str] = None
     exit_code: Optional[int] = None
     duration_seconds: Optional[float] = None
     error: Optional[str] = None
+    truncated_stdout_lines: int = 0
+    truncated_stderr_lines: int = 0
 
 
 def model_argv(model: str, prompt: str, *, resume: Optional[str]) -> list[str]:
@@ -88,6 +91,8 @@ def run_model_once(run: ModelRun) -> ModelRun:
     start = time.time()
     argv = model_argv(run.model, run.prompt, resume=run.resume)
 
+    if run.guard:
+        run.guard.assert_allowed(run.log_path)
     safe_mkdir(run.log_path.parent)
     buf: list[str] = []
     final_text: Optional[str] = None
@@ -123,6 +128,15 @@ def run_model_once(run: ModelRun) -> ModelRun:
                 if proc.stderr is None:
                     return
                 for ln in proc.stderr:
+                    if run.max_line_bytes > 0:
+                        b = ln.encode("utf-8", errors="replace")
+                        if len(b) > run.max_line_bytes:
+                            run.truncated_stderr_lines += 1
+                            prefix = b[: run.max_line_bytes].decode("utf-8", errors="replace")
+                            if prefix and not prefix.endswith("\n"):
+                                prefix += "\n"
+                            stderr_buf.append(prefix + f"...(truncated: {len(b)} bytes > {run.max_line_bytes})\n")
+                            continue
                     stderr_buf.append(ln)
 
             t = threading.Thread(target=_read_stderr, daemon=True)
@@ -132,6 +146,16 @@ def run_model_once(run: ModelRun) -> ModelRun:
                 raise SynapseError("No stdout pipe from model process")
 
             for ln in proc.stdout:
+                if run.max_line_bytes > 0:
+                    b = ln.encode("utf-8", errors="replace")
+                    if len(b) > run.max_line_bytes:
+                        run.truncated_stdout_lines += 1
+                        prefix = b[: run.max_line_bytes].decode("utf-8", errors="replace")
+                        logf.write(prefix)
+                        if prefix and not prefix.endswith("\n"):
+                            logf.write("\n")
+                        logf.write(f"...(truncated: {len(b)} bytes > {run.max_line_bytes})\n")
+                        continue
                 logf.write(ln)
                 ln_stripped = ln.strip()
                 if not ln_stripped:
@@ -169,6 +193,8 @@ def run_model_once(run: ModelRun) -> ModelRun:
     except Exception as e:
         # Ensure the log file contains the error even if the process failed to spawn.
         try:
+            if run.guard:
+                run.guard.assert_allowed(run.log_path)
             safe_mkdir(run.log_path.parent)
             with run.log_path.open("a", encoding="utf-8", newline="\n") as logf:
                 logf.write("\n")
@@ -212,12 +238,20 @@ def run_model_with_retries(
     base_seconds = float(backoff_cfg.get("base_seconds", 2))
     max_seconds = float(backoff_cfg.get("max_seconds", 30))
     jitter = bool(backoff_cfg.get("jitter", True))
+    stream_json = runner.get("stream_json", {})
+    max_line_bytes = int(stream_json.get("max_line_bytes", 10_485_760)) if isinstance(stream_json, dict) else 10_485_760
+    if max_line_bytes <= 0:
+        max_line_bytes = 10_485_760
+
+    guard = WriteGuard.from_defaults(project_root=project_root, defaults=defaults)
 
     ts = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_path = synapse_paths(project_root).logs_dir / f"{ts}-{slug}-{phase}-{model}-stream.jsonl"
 
     last_run: Optional[ModelRun] = None
     for attempt in range(1, retries + 2):
+        attempt_suffix = "" if attempt == 1 else f"-attempt{attempt}"
+        log_path = synapse_paths(project_root).logs_dir / f"{ts}-{slug}-{phase}-{model}-stream{attempt_suffix}.jsonl"
+        guard.assert_allowed(log_path)
         run = ModelRun(
             model=model,
             prompt=prompt,
@@ -225,6 +259,8 @@ def run_model_with_retries(
             resume=resume,
             timeout_seconds=timeout_seconds,
             log_path=log_path,
+            max_line_bytes=max_line_bytes,
+            guard=guard,
         )
         run = run_model_once(run)
         last_run = run
@@ -242,44 +278,10 @@ def run_model_with_retries(
         resume=resume,
         timeout_seconds=timeout_seconds,
         log_path=log_path,
+        max_line_bytes=max_line_bytes,
+        guard=guard,
         error="unknown failure",
     )
-
-
-def run_model_tasks_parallel(
-    tasks: list[dict[str, Any]],
-    *,
-    defaults: dict[str, Any],
-    max_workers: Optional[int] = None,
-) -> list[ModelRun]:
-    """
-    Run multiple model tasks concurrently.
-
-    Each task dict must contain:
-      - model, prompt, project_root, resume, slug, phase
-    """
-    runner = defaults.get("runner", {})
-    concurrency = int(runner.get("concurrency", 2))
-    workers = max(1, int(max_workers or concurrency or 1))
-
-    results: list[ModelRun] = []
-    with ThreadPoolExecutor(max_workers=workers) as ex:
-        futs = [
-            ex.submit(
-                run_model_with_retries,
-                model=t["model"],
-                prompt=t["prompt"],
-                project_root=t["project_root"],
-                resume=t.get("resume"),
-                defaults=defaults,
-                slug=t["slug"],
-                phase=t["phase"],
-            )
-            for t in tasks
-        ]
-        for fut in as_completed(futs):
-            results.append(fut.result())
-    return results
 
 
 def extract_unified_diff(text: str) -> Optional[str]:

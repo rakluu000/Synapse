@@ -32,7 +32,7 @@ Synapse 是一个 **Codex 主导**的多模型研发工作流模板（Codex + Cl
 - `.codex/skills/synapse/`
   - `scripts/`：CLI 入口与实现（Python）
   - `references/`：命令文档（被 SKILL.md 要求“按需读取”）
-  - `assets/defaults.json`：超时/并发/上下文包配置等
+  - `assets/defaults.json`：超时/重试/stream-json 保护/上下文包/写入安全等配置
 
 目标项目中，Synapse 运行后会生成：
 

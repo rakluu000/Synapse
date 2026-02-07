@@ -19,11 +19,11 @@ synapse run --model <claude|gemini> --slug <slug> [--phase <phase>] --prompt-fil
 - `<project>/.synapse/prompts/<ts>-<slug>-<phase>-<model>.prompt.md` (rendered prompt)
 - `<project>/.synapse/patches/<ts>-<slug>-<phase>-<model>.md` (model output)
 - `<project>/.synapse/patches/<ts>-<slug>-<phase>-<model>.diff` (optional; only if a unified diff is extractable)
-- `<project>/.synapse/logs/<ts>-<slug>-<phase>-<model>-stream.jsonl`
+- `<project>/.synapse/logs/<ts>-<slug>-<phase>-<model>-stream(-attemptN).jsonl` (retries keep per-attempt logs)
 - `<project>/.synapse/state.json`
+- `<project>/.synapse/index.json`
 
 ## Notes
 
 - External models do not have filesystem/tool access; pass all required context via the prompt/template vars.
 - If `--plan-path` is provided and a `session_id` is captured, the plan meta `sessions.<model>` is updated.
-

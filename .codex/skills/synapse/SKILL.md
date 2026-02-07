@@ -19,7 +19,7 @@ Artifacts are written under `./.synapse/**` in the *target project root*.
 
 - Only handle requests that start with `synapse <cmd> ...` (no slash commands).
 - Before running anything: open `references/<cmd>.md` and summarize (purpose, usage, models, writes/side effects, and any safety/confirmation requirements).
-- If any CLI args are unclear, run `synapse.py <cmd> --help` (via `uv`) and follow the output.
+- If any **script-level** CLI args are unclear (`init/pack/plan/run/verify/ui`), run `synapse.py <cmd> --help` (via `uv`) and follow the output.
 - Run Synapse scripts via `uv`:
 
 ```powershell
@@ -43,6 +43,7 @@ uv run --no-project python <SKILL_DIR>/scripts/synapse.py --project-dir <PROJECT
 - `--project-dir <dir>`: directory inside the target project (default: `.`)
 - `--resume-gemini <SESSION_ID>` / `--resume-claude <SESSION_ID>`
 - `--resume <SESSION_ID>`: alias for `--resume-gemini` (back-compat)
+  - If both `--resume` and `--resume-gemini` are provided with different values, Synapse errors to avoid silent confusion.
 
 ## Command map
 
@@ -58,6 +59,7 @@ Script-level subcommands (Codex runs via `uv`):
 
 - Project root detection: `git rev-parse --show-toplevel` (fallback: current directory).
 - Artifacts always go under `./.synapse/**` (plans/context/logs/patches/state/index).
+- Writes are guarded by `assets/defaults.json:safety.allowed_write_roots` (hard fail if a write would escape these roots).
 - `init` only writes: `AGENTS.md`, `.gitignore`, `./.synapse/**` (idempotent).
 - `verify` may create **project-local toolchain artifacts** (lockfiles, `.venv/`, `node_modules/`, build outputs) as a side effect.
 - External model calls use local `claude` + `gemini` CLIs in stream-json mode (`session_id` captured; resume supported).

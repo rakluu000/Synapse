@@ -7,11 +7,13 @@ from typing import Optional
 
 from .common import (
     SynapseError,
+    WriteGuard,
     find_project_root,
     load_defaults,
     synapse_paths,
     unique_path,
     utc_now_iso,
+    write_text,
 )
 from .llm import extract_unified_diff, run_model_with_retries
 from .state import rebuild_index, update_plan_session, update_state
@@ -44,7 +46,8 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     from .common import ensure_synapse_layout
 
-    ensure_synapse_layout(paths)
+    guard = WriteGuard.from_defaults(project_root=project_root, defaults=defaults)
+    ensure_synapse_layout(paths, guard=guard)
 
     model = getattr(args, "model", None)
     if model not in ("claude", "gemini"):
@@ -80,7 +83,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     ts = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     prompt_out = unique_path(paths.prompts_dir / f"{ts}-{slug}-{phase}-{model}.prompt.md")
-    prompt_out.write_text(rendered.rstrip() + "\n", encoding="utf-8", newline="\n")
+    write_text(prompt_out, rendered.rstrip() + "\n", guard=guard)
 
     resume: Optional[str] = None
     if model == "gemini":
@@ -99,15 +102,15 @@ def cmd_run(args: argparse.Namespace) -> int:
     )
 
     out_md = unique_path(paths.patches_dir / f"{ts}-{slug}-{phase}-{model}.md")
-    out_md.write_text(run.output_text.strip() + "\n", encoding="utf-8", newline="\n")
+    write_text(out_md, run.output_text.strip() + "\n", guard=guard)
 
     out_diff = None
     diff = extract_unified_diff(run.output_text or "")
     if diff:
         out_diff = unique_path(paths.patches_dir / f"{ts}-{slug}-{phase}-{model}.diff")
-        out_diff.write_text(diff, encoding="utf-8", newline="\n")
+        write_text(out_diff, diff, guard=guard)
 
-    rebuild_index(paths)
+    rebuild_index(paths, guard=guard)
     sessions_by_slug = {model: {slug: run.session_id}} if run.session_id else None
     update_state(
         paths,
@@ -125,6 +128,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             "at": utc_now_iso(),
         },
         sessions_by_slug=sessions_by_slug,
+        guard=guard,
     )
 
     plan_path_raw = getattr(args, "plan_path", None)
@@ -133,7 +137,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         plan_path = plan_path if plan_path.is_absolute() else (project_root / plan_path).resolve()
         if plan_path.exists():
             try:
-                update_plan_session(plan_path=plan_path, model=model, session_id=run.session_id)
+                update_plan_session(plan_path=plan_path, model=model, session_id=run.session_id, guard=guard)
             except Exception as e:
                 print(f"plan_session_update: failed: {type(e).__name__}: {e}")
 

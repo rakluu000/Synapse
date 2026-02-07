@@ -299,7 +299,7 @@ _HTML = """<!doctype html>
         }
         function getRun(modelObj, ts) {
           if (!modelObj.runs.has(ts)) {
-            modelObj.runs.set(ts, { ts, prompt: null, output: null, diff: null, log: null });
+            modelObj.runs.set(ts, { ts, prompt: null, output: null, diff: null, log: null, logAttempt: 0 });
           }
           return modelObj.runs.get(ts);
         }
@@ -362,14 +362,18 @@ _HTML = """<!doctype html>
         });
 
         (tree.log_files || []).forEach((path) => {
-          let m = path.match(/^\\.synapse\\/logs\\/(\\d{8}-\\d{6})-(.+)-(claude|gemini)-stream\\.jsonl$/);
+          let m = path.match(/^\\.synapse\\/logs\\/(\\d{8}-\\d{6})-(.+)-(claude|gemini)-stream(?:-attempt(\\d+))?\\.jsonl$/);
           if (m) {
             const ts = m[1];
             const parts = splitSlugPhase(m[2], knownSlugs);
             const model = m[3];
+            const attempt = m[4] ? parseInt(m[4], 10) : 1;
             if (!parts.slug || !parts.phase) return ungrouped.log_files.push(path);
             const run = getRun(getModel(getPhase(getSlug(parts.slug), parts.phase), model), ts);
-            run.log = path;
+            if (attempt >= (run.logAttempt || 0)) {
+              run.log = path;
+              run.logAttempt = attempt;
+            }
             return;
           }
           m = path.match(/^\\.synapse\\/logs\\/(\\d{8}-\\d{6})-verify-(.+)\\.log$/);

@@ -12,6 +12,7 @@ synapse verify [--dry-run] [--no-install] [--keep-going]
 
 - `<project>/.synapse/logs/*` (full output per step)
 - `<project>/.synapse/state.json` (steps + results)
+- `<project>/.synapse/index.json`
 - May create project-local toolchain artifacts (lockfiles, `.venv/`, `node_modules/`, build outputs, etc.)
 
 ## Exit codes

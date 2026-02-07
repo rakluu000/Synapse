@@ -14,6 +14,44 @@ class SynapseError(RuntimeError):
     pass
 
 
+@dataclass(frozen=True)
+class WriteGuard:
+    project_root: Path
+    allowed_roots: tuple[str, ...]
+
+    @classmethod
+    def from_defaults(cls, *, project_root: Path, defaults: dict[str, Any]) -> "WriteGuard":
+        safety = defaults.get("safety") if isinstance(defaults, dict) else None
+        roots = safety.get("allowed_write_roots") if isinstance(safety, dict) else None
+        if not isinstance(roots, list):
+            roots = []
+        allowed = [str(r).strip() for r in roots if isinstance(r, str) and str(r).strip()]
+        if not allowed:
+            allowed = ["AGENTS.md", ".gitignore", ".synapse"]
+        return cls(project_root=project_root.resolve(), allowed_roots=tuple(allowed))
+
+    def assert_allowed(self, path: Path) -> None:
+        full = path if path.is_absolute() else (self.project_root / path)
+        try:
+            full = full.resolve()
+        except Exception:
+            full = full.absolute()
+
+        try:
+            rel = full.relative_to(self.project_root)
+        except Exception as e:
+            raise SynapseError(f"Write outside project root is not allowed: {full}") from e
+
+        parts = rel.parts
+        if not parts or parts == (".",):
+            raise SynapseError(f"Write target is not a file path: {full}")
+
+        root = parts[0]
+        if root in self.allowed_roots:
+            return
+        raise SynapseError(f"Write blocked by safety policy: {full} (allowed roots: {', '.join(self.allowed_roots)})")
+
+
 def utc_now_iso() -> str:
     return _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0).isoformat()
 
@@ -26,7 +64,9 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def write_text(path: Path, content: str) -> None:
+def write_text(path: Path, content: str, *, guard: WriteGuard | None = None) -> None:
+    if guard:
+        guard.assert_allowed(path)
     safe_mkdir(path.parent)
     path.write_text(content, encoding="utf-8", newline="\n")
 
@@ -35,9 +75,13 @@ def read_json(path: Path) -> Any:
     return json.loads(read_text(path))
 
 
-def write_json_atomic(path: Path, data: Any) -> None:
+def write_json_atomic(path: Path, data: Any, *, guard: WriteGuard | None = None) -> None:
+    if guard:
+        guard.assert_allowed(path)
     safe_mkdir(path.parent)
     tmp = path.with_suffix(path.suffix + ".tmp")
+    if guard:
+        guard.assert_allowed(tmp)
     content = json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     tmp.write_text(content, encoding="utf-8", newline="\n")
     os.replace(tmp, path)
@@ -140,7 +184,7 @@ def synapse_paths(project_root: Path) -> SynapsePaths:
     )
 
 
-def ensure_synapse_layout(paths: SynapsePaths) -> None:
+def ensure_synapse_layout(paths: SynapsePaths, *, guard: WriteGuard | None = None) -> None:
     safe_mkdir(paths.plan_dir)
     safe_mkdir(paths.context_dir)
     safe_mkdir(paths.logs_dir)
@@ -148,7 +192,7 @@ def ensure_synapse_layout(paths: SynapsePaths) -> None:
     safe_mkdir(paths.prompts_dir)
 
     if not paths.index_json.exists():
-        write_json_atomic(paths.index_json, {"version": 1, "plans": [], "updated_at": utc_now_iso()})
+        write_json_atomic(paths.index_json, {"version": 1, "plans": [], "updated_at": utc_now_iso()}, guard=guard)
 
     if not paths.state_json.exists():
         write_json_atomic(
@@ -161,6 +205,7 @@ def ensure_synapse_layout(paths: SynapsePaths) -> None:
                 "last": {},
                 "sessions": {"gemini": {"by_slug": {}}, "claude": {"by_slug": {}}},
             },
+            guard=guard,
         )
         return
 
@@ -175,7 +220,7 @@ def ensure_synapse_layout(paths: SynapsePaths) -> None:
     state.setdefault("sessions", {})
     state["sessions"].setdefault("gemini", {"by_slug": {}})
     state["sessions"].setdefault("claude", {"by_slug": {}})
-    write_json_atomic(paths.state_json, state)
+    write_json_atomic(paths.state_json, state, guard=guard)
 
 
 def slugify(text: str, *, max_len: int = 48) -> str:
@@ -208,4 +253,3 @@ def truncate_bytes(text: str, max_bytes: int) -> str:
         return text
     cut = b[: max_bytes - 10]
     return cut.decode("utf-8", errors="replace") + "\n…(truncated)\n"
-

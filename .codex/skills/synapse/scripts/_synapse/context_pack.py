@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import datetime as _dt
 import re
-import time
 from pathlib import Path
 from typing import Any
 
 from .common import (
     SynapsePaths,
+    WriteGuard,
     is_git_repo,
     read_text,
     run_cmd,
@@ -161,6 +161,7 @@ def build_context_pack(
     query: str,
     rg_queries: list[str] | None = None,
     include_files: list[Path] | None = None,
+    guard: WriteGuard | None = None,
 ) -> Path:
     cfg = defaults.get("context_pack", {})
     rg_cfg = cfg.get("rg", {})
@@ -301,9 +302,5 @@ def build_context_pack(
         parts.append("```")
         parts.append("")
 
-    write_text(out_path, "\n".join(parts).rstrip() + "\n")
+    write_text(out_path, "\n".join(parts).rstrip() + "\n", guard=guard)
     return out_path
-
-
-def _monotonic_ms() -> int:
-    return int(time.monotonic() * 1000)
