@@ -1,233 +1,208 @@
-# Synapse（Codex Skill）
+<h1 align="center">
+Synapse
+</h1>
 
-Synapse 是一个 **Codex 主导**的多模型研发工作流模板（Codex + Claude + Gemini）：
+<p align="center">
+  <strong>Codex-Based Multi-Model Workflow</strong>
+</p>
 
-- **外部模型（Claude/Gemini）只产“草稿”（diff/审计）**，不做真实文件读写
-- **Codex 负责最终落地改代码 + 运行验证 + 交付**
-- 所有流程产物统一落盘到目标项目的 `./.synapse/**`，便于断点续跑与审计
-- Synapse **不启用任何 auto-approve**：外部模型不会被授权“自动改你的工作区”；任何工具调用都应视为不可靠/可能被策略拒绝（输出只作为草稿）
+<p align="center">
+  Coordinates Claude and Gemini under Codex's control<br/>
+  <em>Human approval gate · Write-guarded artifacts · Automated verification</em>
+</p>
 
-> 目标体验：接近 `ccg-workflow` 的“一条龙研发流程”，但把主控从 Claude 迁移到 Codex。
-
----
-
-## 文档分工（重要）
-
-为节省上下文与降低模型成本，文档按用途拆分：
-
-1) `README.md`（本文件）  
-给**人**看的总说明：理念、全流程、目录结构、verify 探测策略、维护与扩展指南。
-
-2) `.codex/skills/synapse/SKILL.md`  
-给 **Codex** 的“执行协议”：触发条件、路由规则、必须读取 `references/<cmd>.md`、安全边界与确认点。
-
-3) `.codex/skills/synapse/references/*.md`  
-给 **每个命令**的“短规格说明”：用法、输入/输出、写入范围、确认点、失败恢复、模型分工（尽量短）。
+<p align="center">
+  <a href="README_CN.md">简体中文</a> | English
+</p>
 
 ---
 
-## 目录结构
+## 🤔 What is this?
 
-本仓库中，Skill 本体位于：
+Synapse is a **Codex skill** that orchestrates multiple AI models to help you build software:
 
-- `.codex/skills/synapse/`
-  - `scripts/`：CLI 入口与实现（Python）
-  - `references/`：命令文档（被 SKILL.md 要求“按需读取”）
-  - `assets/defaults.json`：超时/重试/stream-json 保护/上下文包/写入安全等配置
+```mermaid
+flowchart TB
+    subgraph Orchestrator["Codex (Controller)"]
+        direction TB
+        A1["Generates prompts"]
+        A2["Rewrites drafts into production code"]
+        A3["Runs verification & delivers"]
+    end
 
-目标项目中，Synapse 运行后会生成：
+    Orchestrator --> Claude["Claude<br/>(Planning · Backend diffs · Audits)"]
+    Orchestrator --> Gemini["Gemini<br/>(Frontend diffs · UI/UX audits)"]
+```
 
-- `./.synapse/plan/`：plan 文件（含 meta JSON：`task_type`、sessions 等）
-- `./.synapse/context/`：context pack（git diff/status + rg 摘要 + snippets）
-- `./.synapse/logs/`：外部模型 stream-json 日志、verify 命令日志
-- `./.synapse/patches/`：草稿 diff、审计报告等
-- `./.synapse/prompts/`：Codex 生成并渲染后的 prompts（可审计/可复现）
-- `./.synapse/state.json`：最近一次命令/产物/会话信息（用于续跑）
-- `./.synapse/index.json`：plan 索引
-
-你可以用 `synapse ui` 打开本地只读 Web Viewer，默认按 `slug → phase → model` 分组显示时间线，并可切换到 Browse 视图浏览原始目录列表。
+**Key principle**: External models (Claude/Gemini) only produce **drafts** — they never touch your files directly. Codex reviews every draft and rewrites it into production-quality code before applying.
 
 ---
 
-## 如何使用（两种方式）
+## ✨ Core Features
 
-### 方式 1：在 Codex 对话中（推荐）
-
-你在 Codex 聊天里输入：
-
-- `synapse workflow <你的需求...>`（从 init 一路跑到 review/verify 的“一条龙”）
-- `synapse feat <你的需求...>`（等价于 workflow，用于在已有项目上追加新特性）
-
-然后由 **Codex 主控**自动编排：调用脚本的 `init/pack/plan/run/verify/ui` 原语、生成 prompts、落地最终代码、跑验证并交付。
-
-> 注意：`workflow/feat` 是“对话层”的 meta 命令，不是 `synapse.py` 的子命令；你无法在 shell 里直接 `python synapse.py workflow ...`。
->
-> 另外：`synapse ui` 是长驻进程（本地 Web Viewer）。在不少环境里 Codex 无法把它常驻在后台，所以当你输入 `synapse ui` 时，Codex 会直接给你一条“复制即用”的启动命令，你在独立终端手动运行即可。
-
-### 方式 2：手动跑脚本原语（高级/调试）
-
-当你想复现/调试某一步时，可以在 PowerShell 里手动运行脚本子命令（见下方“快速开始”示例）。
+| Feature | Description |
+|---------|-------------|
+| 📝 Draft-based | External models produce draft diffs; Codex applies final code |
+| 🚪 Gate confirmation | Human approval required after planning, before execution |
+| 🛡️ Write guard | All file writes are restricted to declared safe paths |
+| ✅ Auto-verification | Detects your toolchain and runs lint/typecheck/test automatically |
+| 🔄 Session resume | Pick up where you left off with captured session IDs |
+| 🌐 Web viewer | Browse all artifacts locally via `synapse ui` |
 
 ---
 
-## 模型分工（全阶段，一览）
+## 🚀 Quick Start
 
-### 路由规则（方案 A）
+### 📋 Prerequisites
 
-在 `synapse plan` 时显式指定（并写入 plan meta）：
+| Tool | Required |
+|------|----------|
+| git | Recommended (enables review/audit via `git diff`) |
+| rg (ripgrep) | Recommended (enables context pack search) |
+| uv | Yes (Python runner) |
+| claude CLI | Yes |
+| gemini CLI | Yes |
 
-- `task_type=frontend`：只走前端链路
-- `task_type=backend`：只走后端链路
-- `task_type=fullstack`：前后端都走（成本最高，但最稳）
-
-### 分工矩阵
-
-| 阶段 | Codex（主控） | Claude | Gemini |
-|---|---|---|---|
-| `init` | 写入约束文件与布局 | 不调用 | 不调用 |
-| `plan` | 生成 prompts + 合并为最终可执行计划（对话中完成） | 主计划：架构/边界/风险/测试 | 仅 `frontend/fullstack`：UI/UX/可访问性计划 |
-| `run (draft diff)` | 把 diff 当草稿，重写成最终代码（对话中完成） | 仅 `backend/fullstack`：产后端 diff 草稿 | 仅 `frontend/fullstack`：产前端 diff 草稿 |
-| `verify` | 运行并解读验证结果 | 不调用 | 不调用 |
-| `run (audit)` | 根据审计修正代码并复跑验证 | 总体审计：正确性/安全/边界/可维护性 | 仅 `frontend/fullstack`：UI/UX/可访问性审计 |
-| `workflow/feat` | 一条龙编排（在 **Codex 对话**中完成；脚本提供 `init/pack/plan/run/verify/ui` 原语） | 见各阶段 | 见各阶段 |
-
----
-
-## 快速开始（在任意目标项目中运行）
-
-前置依赖（建议）：
-
-- `git`、`rg`（ripgrep）
-- `uv`（Python 运行/依赖：本项目强制 Python 相关使用 `uv`）
-- 本机 `claude` CLI、`gemini` CLI（外部模型调用）
-
-PowerShell 示例：
+### 💬 Usage (in Codex chat)
 
 ```powershell
-$SkillDir = "H:\Project-C\Synapse\.codex\skills\synapse"
-$Project  = "D:\your-project"
+# End-to-end workflow: init through review
+synapse workflow "Add user authentication with JWT"
 
-# 0) 建议：确保项目根目录有 git（新/旧项目都一样）
-#    Synapse 的 review/audit 主要围绕 `git diff` 打包与审计；脚本不会自动 `git init`，避免隐式改动仓库状态。
-git -C "$Project" init
+# Same thing, shorter alias
+synapse feat "Add user authentication with JWT"
+```
 
-# 1) 初始化（幂等）
-uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" init
+Codex automatically orchestrates the full pipeline: `init` → `plan` → Gate → `run` (drafts) → apply code → `verify` → `run` (audits) → deliver.
 
-# 2) 生成计划（写 task_type 到 plan meta）
-uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" plan --task-type fullstack "Your request here"
+> **Note**: `workflow` and `feat` are Codex chat commands, not shell commands. You cannot run them directly via `python synapse.py workflow ...`.
 
-# 3) 生成草稿（外部模型）：由 Codex 写 prompts 后，用 `run` 调用 Claude/Gemini
-#    （示例中 `prompt-file`/`var-file` 仅展示形态；实际由 Codex 决定内容与注入变量）
-uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" run --model claude --phase plan --slug "<slug>" --prompt-file ".synapse/prompts/plan-claude.template.md" --plan-path "<plan_path>"
-uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" run --model gemini --phase plan --slug "<slug>" --prompt-file ".synapse/prompts/plan-gemini.template.md" --plan-path "<plan_path>"
+### 🔧 Manual commands (advanced)
 
-# 4) 由 Codex（主控）把草稿重写成最终代码后，跑验证与审计
-uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" verify
-uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" pack --phase review --slug "<slug>" --query "git diff review"
-uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" run --model claude --phase review --slug "<slug>" --prompt-file ".synapse/prompts/review-claude.template.md" --plan-path "<plan_path>"
-uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" run --model gemini --phase review --slug "<slug>" --prompt-file ".synapse/prompts/review-gemini.template.md" --plan-path "<plan_path>"
+For debugging or reproducing individual steps:
 
-# 5) 打开本地只读 Web Viewer（浏览 `.synapse/**`）
-uv run --no-project python "$SkillDir\scripts\synapse.py" --project-dir "$Project" ui
+```powershell
+$Skill   = "<path-to>\.codex\skills\synapse"
+$Project = "<your-project>"
+
+# Initialize (idempotent)
+uv run --no-project python "$Skill\scripts\synapse.py" --project-dir "$Project" init
+
+# Create a plan
+uv run --no-project python "$Skill\scripts\synapse.py" --project-dir "$Project" plan --task-type fullstack "Your request"
+
+# Run an external model (prompt written by Codex)
+uv run --no-project python "$Skill\scripts\synapse.py" --project-dir "$Project" run --model claude --phase plan --slug "<slug>" --prompt-file "<prompt>"
+
+# Verify (auto-detects toolchain)
+uv run --no-project python "$Skill\scripts\synapse.py" --project-dir "$Project" verify
+
+# Open web viewer
+uv run --no-project python "$Skill\scripts\synapse.py" --project-dir "$Project" ui
 ```
 
 ---
 
-## Git 工作习惯（强烈推荐）
+## 🔄 Workflow Overview
 
-- 运行 `workflow/feat` 前：确保这是一个 git 仓库（至少 `git init`），否则 review/audit 只能退化为“非 git 模式”的打包。
-- **每做完一个 feat 就提交一次（commit）**：让下一次 `synapse feat` 的 `git diff` 更干净，review/audit 的输入更聚焦、成本更低、结论更清晰。
-- review 前如果有新增未跟踪文件：先跑一次 `git add -N .`，让新文件也能出现在 `git diff` 里（但不真正 stage 内容）。
+```
+init → plan → (Gate) → run (drafts) → Codex applies code → verify → run (audits) → deliver
+                │
+          Single confirmation
+```
 
----
-
-## “diff 当草稿”的落地方式（你关心的点）
-
-Synapse 的 `run` 产物可以是 **draft diff**（例如 `--phase execute`），建议的落地顺序是：
-
-1) Codex 阅读 plan + 两份 draft diff（frontend/backed）+ 审计（如有）
-2) Codex 以项目真实代码为准，**重写**成生产级实现（而不是机械套用 diff）
-3) Codex 跑 `synapse verify`（自动探测）并修到绿
-4) Codex 通过 `synapse run --phase review ...` 获取审计，根据审计再修、再 verify
-
-这么做的好处：
-
-- draft diff 负责“探索/铺路”，Codex 负责“最终质量”
-- 避免外部模型 patch 直接落地导致的风格不一致、测试缺失、边界问题
+| Stage | What happens | Writes code |
+|-------|-------------|:-----------:|
+| init | Creates `.synapse/` layout, `AGENTS.md`, `.gitignore` | |
+| plan | Generates plan stub + Gate checklist + context pack | |
+| **Gate** | **User confirms scope, task type, side effects** | |
+| run (drafts) | Claude/Gemini produce draft diffs | |
+| apply | Codex rewrites drafts into production code | Yes |
+| verify | Auto-detects toolchain, runs lint/typecheck/test | |
+| run (audits) | Claude/Gemini review the final `git diff` | |
 
 ---
 
-## Verify 自动探测策略（当前实现）
+## 🤖 Model Roles
 
-`synapse verify` 会按项目根目录的标志文件探测可运行步骤，并把完整输出写入 `.synapse/logs/**`。
+| Role | Codex (Controller) | Claude | Gemini |
+|------|-------------------|--------|--------|
+| Planning | Merges into final plan | Architecture, risks, tests | UI/UX, accessibility (frontend/fullstack only) |
+| Drafting | Rewrites drafts to production code | Backend diffs (backend/fullstack) | Frontend diffs (frontend/fullstack) |
+| Verification | Runs and interprets results | Not called | Not called |
+| Auditing | Fixes code based on audits | Correctness, security, maintainability | UI/UX, accessibility (frontend/fullstack only) |
 
-当前支持：
+**Task type routing** (set at plan time):
 
-- Node：检测 `package.json`，优先使用锁文件选择 `pnpm/yarn/npm`，再按是否存在脚本决定跑 `lint/typecheck/test`
-- Python（uv only）：检测 `pyproject.toml` 或 `requirements.txt`  
-  - `pyproject.toml`：`uv sync` → `uv run python -m pytest`（若看起来像 pytest 项目）或 `unittest discover`
-  - `requirements.txt`：`uv venv` + `uv pip install -r requirements.txt` → 运行测试
-- Rust：`Cargo.toml` → `cargo test`
-- Go：`go.mod` → `go test ./...`
-- .NET：存在 `*.sln/*.csproj/*.fsproj` → `dotnet test`
-
-参数：
-
-- `--dry-run`：只打印计划命令
-- `--no-install`：跳过安装/同步依赖步骤
-- `--keep-going`：失败也继续跑后续步骤
-
-注意：
-
-- `verify` 允许产生项目级副产物（lockfile、`.venv/`、`node_modules/`、build 输出等）
-- 探测不到入口时不会崩溃，会记录为“nothing to run”
+- `frontend` — only frontend pipeline
+- `backend` — only backend pipeline
+- `fullstack` — both (default, higher cost)
 
 ---
 
-## Session / Resume
+## 🚪 Gate
 
-- plan 文件 meta（JSON）里有 `sessions` 字段（如 `claude`、`gemini` 的 `session_id`）
-- `synapse run` 会捕获 `session_id`（写入 `.synapse/state.json`），并可在提供 `--plan-path` 时回写到 plan meta `sessions.<model>`
-- CLI 支持：
-  - `--resume-gemini <SESSION_ID>`
-  - `--resume-claude <SESSION_ID>`
-  - `--resume <SESSION_ID>`（兼容别名：等价于 `--resume-gemini`）
+The single required user confirmation. After `plan`, Codex presents:
 
----
+- Scope and acceptance criteria
+- `task_type` selection (with recommendation)
+- Stack/toolchain choice
+- Allowed side effects (dependency install, lockfiles, build artifacts)
+- Git/review setup
+- Verification plan
 
-## 退出码（用于脚本化/CI）
-
-- 大多数命令：成功 `0`；失败 `2`（会打印 `synapse error: ...`）
-- `synapse run`：只有当外部模型 **exit code=0 且输出非空** 才算成功（返回 `0`），否则返回 `2`
-- `synapse verify`：全部步骤 OK 返回 `0`；任一步 FAILED/BLOCKED 返回 `2`；若探测不到工具链（nothing to run）也返回 `0`
+After Gate confirmation, the rest proceeds automatically.
 
 ---
 
-## 维护与扩展（给脚本维护者）
+## 📌 Git Best Practices
 
-关键入口：
-
-- `.codex/skills/synapse/scripts/synapse.py`：CLI 子命令定义
-- `.codex/skills/synapse/scripts/_synapse/cmd_init.py`：init
-- `.codex/skills/synapse/scripts/_synapse/cmd_pack.py`：pack（context pack）
-- `.codex/skills/synapse/scripts/_synapse/cmd_plan.py`：plan（plan stub + Gate）
-- `.codex/skills/synapse/scripts/_synapse/cmd_run.py`：run（外部模型运行器：prompt 由 Codex 提供）
-- `.codex/skills/synapse/scripts/_synapse/cmd_ui.py`：ui（本地 web viewer）
-- `.codex/skills/synapse/scripts/_synapse/cmd_verify.py`：verify 自动探测与执行
-- `.codex/skills/synapse/scripts/_synapse/context_pack.py`：context pack（git/rg/snippets）
-- `.codex/skills/synapse/scripts/_synapse/llm.py`：外部模型调用（stream-json 捕获 session）
-
-建议的扩展方式：
-
-- 新增生态探测：优先只加“明确且低风险”的命令（比如官方 test 命令），避免盲目猜测
-- 为 verify 增加 “按文件变更范围缩小测试集” 的策略：先跑最窄，再跑全量
+- **Use a git repo** — review/audit quality is best with `git diff`. Run `git init` if needed.
+- **Commit after each feat** — keeps the next `git diff` clean and focused.
+- **Before review** — run `git add -N .` so new untracked files appear in `git diff`.
 
 ---
 
-## 常见坑（简短）
+## ❓ FAQ
 
-- `.synapse/**` 默认会被 `synapse init` 追加到 `.gitignore`（`/.synapse/`），这是刻意设计：把 prompts/logs/patches 等临时产物留在本地，避免污染仓库历史。
-- `synapse init` 会在 `AGENTS.md` 里维护一段带标记的合并块（`<!-- SYNAPSE-BEGIN --> ... <!-- SYNAPSE-END -->`），可安全重复执行，不会覆盖你自己的其它 Agent 约定。
-- plan 文件名来自 `slug`（默认由 request 派生）。如果同一 `slug` 反复 `plan`，旧 plan 会被备份成 `.md.bak`；需要固定/区分时用 `synapse plan --slug <slug> ...`。
-- `--project-dir` 可以指向仓库内任意子目录；Synapse 会用 `git rev-parse --show-toplevel` 自动提升到仓库根目录作为 project root，因此 `.synapse/**` 默认总在仓库根目录生成。
+<details>
+<summary>Q: Why don't external models write code directly?</summary>
+
+External models run headlessly with no auto-approve. Their output is treated as a draft. Codex rewrites it to match project conventions, adds tests, and ensures quality before applying.
+
+</details>
+
+<details>
+<summary>Q: What does `synapse verify` actually run?</summary>
+
+It auto-detects your toolchain (Node, Python, Rust, Go, .NET) and runs the appropriate install/lint/typecheck/test commands. Use `--dry-run` to preview without executing.
+
+</details>
+
+<details>
+<summary>Q: Can I use only Claude or only Gemini?</summary>
+
+Yes. Set `--task-type backend` (Claude only) or `--task-type frontend` (Gemini only). With `fullstack`, both are used.
+
+</details>
+
+<details>
+<summary>Q: Where do artifacts go?</summary>
+
+All artifacts are written to `.synapse/` in your project root (auto-added to `.gitignore`). Use `synapse ui` to browse them in a local web viewer.
+
+</details>
+
+---
+
+## 📚 More Information
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) — Technical details, module structure, internal mechanisms
+- `.codex/skills/synapse/SKILL.md` — Codex execution protocol
+- `.codex/skills/synapse/references/*.md` — Per-command specifications
+
+---
+
+## 📄 License
+
+MIT
