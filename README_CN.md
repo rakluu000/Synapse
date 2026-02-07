@@ -19,7 +19,7 @@ Synapse
 
 ## 🤔 这是什么？
 
-Synapse 是一个 **Codex 技能**，用于编排多个 AI 模型协助你构建软件：
+Synapse 是一个 **Codex skill**，用于编排多个 AI 模型协助你构建软件：
 
 ```mermaid
 flowchart TB
