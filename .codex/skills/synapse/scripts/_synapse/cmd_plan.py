@@ -24,10 +24,11 @@ def _gate_stub() -> str:
         [
             "## Gate (Codex) — single confirmation point",
             "",
-            "Confirm these once after reviewing the drafts (scope + decisions + side effects).",
+            "Confirm these once after reviewing the gate_prep output (clarifications + decisions + side effects).",
             "",
             "### Required confirmations",
             "",
+            "- [ ] Clarification checklist is resolved (single-round): unanswered items use the recommended defaults.",
             "- [ ] Scope and acceptance criteria are correct (no missing requirements).",
             "- [ ] `task_type` selection is confirmed:",
             "  - Options: `frontend` / `backend` / `fullstack`",
@@ -42,7 +43,7 @@ def _gate_stub() -> str:
             "  - [ ] Before review: run `git add -N .` so new files appear in `git diff`.",
             "- [ ] Verification plan is confirmed (what `synapse verify` will run after applying code).",
             "",
-            "### Open questions (fill in; keep short)",
+            "### Open questions (only if truly blocking; keep short)",
             "",
             "- Q1: (if any)",
             "",
@@ -109,13 +110,13 @@ def cmd_plan(args: argparse.Namespace) -> int:
 
     plan_text = "\n".join(
         [
-            "## Draft (Claude)",
+            "## gate_prep (Claude) — clarification checklist + acceptance criteria",
             "",
-            "(TBD: run `synapse run --model claude ...` and paste/summarize here.)",
+            "(TBD: required for workflow. Run `synapse run --model claude --phase gate_prep ...` and paste/summarize here.)",
             "",
-            "## Draft (Gemini)",
+            "## gate_prep (Gemini) — optional (frontend/fullstack only)",
             "",
-            "(TBD: run `synapse run --model gemini ...` and paste/summarize here; skip if backend-only.)",
+            "(TBD: optional. Run `synapse run --model gemini --phase gate_prep ...` and paste/summarize here; skip if backend-only.)",
             "",
             _gate_stub(),
         ]

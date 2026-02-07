@@ -2,7 +2,7 @@
 
 Codex-led end-to-end workflow (user-level meta command):
 
-`init → plan → (Gate) → run(drafts) → Codex applies final code → verify → run(audits) → deliver`
+`init → plan → run(gate_prep) → Gate → run(drafts) → Codex applies final code → verify → run(audits) → deliver`
 
 ## Usage (in Codex chat)
 
@@ -14,22 +14,38 @@ synapse workflow [--task-type <frontend|backend|fullstack>] <request...>
 
 - If `--task-type` is omitted: default to `fullstack` (info-complete; higher cost).
 
-## What Codex runs
+## What Codex runs (high level)
 
 1) `synapse init`
 2) `synapse plan ...` (writes plan stub + Gate checklist + optional context pack)
-3) `synapse run ...` (Claude + Gemini drafts; prompts are written by Codex)
-4) **Gate (single user confirmation)**: Codex presents options + recommendation, user confirms once
+3) `synapse run ...` (**gate_prep**, Claude; Gemini optional for frontend/fullstack)
+4) **Gate (single-round user reply)** (see rules below)
 5) `synapse run ...` (draft diffs for implementation; routed by confirmed `task_type`)
 6) Codex applies final code changes (rewrite drafts into production quality)
 7) `synapse verify` (auto-detect; may install deps / create lockfiles)
 8) `git add -N .` (make new files visible in `git diff`)
 9) `synapse pack --phase review ...` + `synapse run ...` (Claude/Gemini audits of current `git diff`)
 
-## Confirmation (Gate)
+## Gate rules (single-round)
 
-- The only required confirmation is after `plan`.
-- Gate must explicitly confirm: scope, `task_type`, stack/toolchain, allowed writes/side effects (deps install + lockfiles), verify commands, and git/review setup.
+- Codex asks the full clarification checklist **in one message** (often 5-10 questions if the request is ambiguous).
+- User replies once (e.g. `A1..An`). Unanswered items imply: accept the recommended default.
+- User can reply `Defaults` / `默认` to accept all recommended defaults.
+- Gate must also confirm: scope + acceptance criteria, `task_type`, stack/toolchain, allowed side effects, verify plan, and git/review setup.
+
+## `gate_prep` contract (Claude)
+
+Goal: make the Gate high-signal, even when the request is vague.
+
+Claude output must be **Markdown** (same language as the request) and include:
+
+- Restated request (1-2 sentences)
+- Draft acceptance criteria (bullet list)
+- Clarification checklist (Q1..Qn):
+  - Ask **5-10 questions** when ambiguous.
+  - Each question includes: `Why this matters`, `Recommended default`, `Answer format`.
+- Recommendations (short): likely `task_type`, stack/toolchain assumptions, and a verification approach.
+- Constraints: no code changes; **no diffs/patches**.
 
 ## Writes / side effects
 

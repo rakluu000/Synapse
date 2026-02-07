@@ -28,9 +28,7 @@ uv run --no-project python <SKILL_DIR>/scripts/synapse.py --project-dir <PROJECT
 
 - Treat any external diff as a **draft**. Do **not** apply verbatim; Codex rewrites to production quality.
 - Prompts are **not hardcoded in scripts**. Codex must generate prompts and pass them via `synapse run --prompt-file ...`.
-- `workflow`/`feat` are end-to-end (Codex-orchestrated): `init → plan → (Gate) → run(drafts) → (Codex apply) → verify → run(audits) → deliver`.
-  - The **only required user confirmation** is the Gate after `plan` (scope + task_type + stack/toolchain + side effects + verify commands).
-  - After Gate confirmation, proceed automatically with no additional prompts.
+- `workflow`/`feat` are end-to-end (Codex-orchestrated) meta commands. Treat `references/workflow.md` as the source of truth for the exact steps and Gate requirements (including `gate_prep` + single-round Gate).
 - `task_type` rules:
   - If the user explicitly sets `--task-type`, respect it.
   - If omitted: default to `fullstack` (info-complete; higher cost) and still present `frontend/backend/fullstack` options + Codex recommendation at the Gate.

@@ -106,15 +106,16 @@ uv run --no-project python "$Skill\scripts\synapse.py" --project-dir "$Project" 
 ## 🔄 Workflow Overview
 
 ```
-init → plan → (Gate) → run (drafts) → Codex applies code → verify → run (audits) → deliver
-                │
-          Single confirmation
+init → plan → run (gate_prep) → (Gate) → run (drafts) → Codex applies code → verify → run (audits) → deliver
+                         │
+                   Single confirmation
 ```
 
 | Stage | What happens | Writes code |
 |-------|-------------|:-----------:|
 | init | Creates `.synapse/` layout, `AGENTS.md`, `.gitignore` | |
 | plan | Generates plan stub + Gate checklist + context pack | |
+| run (gate_prep) | Claude prepares a clarification checklist + acceptance criteria (Gemini optional for frontend) | |
 | **Gate** | **User confirms scope, task type, side effects** | |
 | run (drafts) | Claude/Gemini produce draft diffs | |
 | apply | Codex rewrites drafts into production code | Yes |
@@ -142,8 +143,9 @@ init → plan → (Gate) → run (drafts) → Codex applies code → verify → 
 
 ## 🚪 Gate
 
-The single required user confirmation. After `plan`, Codex presents:
+The single required user confirmation. After `plan` (+ `gate_prep`), Codex presents:
 
+- Clarification checklist (from Claude `gate_prep`) with recommended defaults (single-round reply)
 - Scope and acceptance criteria
 - `task_type` selection (with recommendation)
 - Stack/toolchain choice
