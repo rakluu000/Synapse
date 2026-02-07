@@ -201,7 +201,7 @@ def build_context_pack(
         head = run_cmd(["git", "rev-parse", "HEAD"], cwd=project_root, timeout_seconds=10)
         branch = run_cmd(["git", "branch", "--show-current"], cwd=project_root, timeout_seconds=10)
         parts.append(f"- branch: {branch.stdout.strip() or '(detached)'}")
-        parts.append(f"- head: {head.stdout.strip()}")
+        parts.append(f"- head: {head.stdout.strip() if head.code == 0 else '(no commits yet)'}")
         parts.append("")
 
         status = run_cmd(["git", "status", "--porcelain", "-b"], cwd=project_root, timeout_seconds=20)

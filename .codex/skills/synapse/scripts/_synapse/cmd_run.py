@@ -61,11 +61,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     if not slug:
         raise SynapseError("run requires --slug")
 
-    prompt_file = Path(getattr(args, "prompt_file", None) or "")
-    if not prompt_file:
-        raise SynapseError("run requires --prompt-file")
+    prompt_file_raw = getattr(args, "prompt_file", None)
+    if not isinstance(prompt_file_raw, str) or not prompt_file_raw.strip():
+        raise SynapseError("run requires --prompt-file <path>")
+    prompt_file = Path(prompt_file_raw)
     prompt_file = prompt_file if prompt_file.is_absolute() else (project_root / prompt_file).resolve()
-    if not prompt_file.exists():
+    if not prompt_file.exists() or not prompt_file.is_file():
         raise SynapseError(f"Prompt file not found: {prompt_file}")
 
     template = prompt_file.read_text(encoding="utf-8", errors="replace")

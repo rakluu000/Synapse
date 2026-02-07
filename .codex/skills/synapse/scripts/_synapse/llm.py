@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
+import queue
 import random
 import re
 import subprocess
@@ -129,12 +130,87 @@ def run_model_once(run: ModelRun) -> ModelRun:
                 except Exception:
                     pass
 
-            stderr_buf: list[str] = []
+            if proc.stdout is None:
+                raise SynapseError("No stdout pipe from model process")
 
-            def _read_stderr() -> None:
-                if proc.stderr is None:
+            sentinel = object()
+            stdout_q: queue.Queue[object] = queue.Queue()
+            stderr_q: queue.Queue[object] = queue.Queue()
+
+            def _read_pipe(pipe, q: queue.Queue[object]) -> None:
+                if pipe is None:
+                    q.put(sentinel)
                     return
-                for ln in proc.stderr:
+                try:
+                    for ln in pipe:
+                        q.put(ln)
+                finally:
+                    q.put(sentinel)
+
+            t_out = threading.Thread(target=_read_pipe, args=(proc.stdout, stdout_q), daemon=True)
+            t_err = threading.Thread(target=_read_pipe, args=(proc.stderr, stderr_q), daemon=True)
+            t_out.start()
+            t_err.start()
+
+            stderr_buf: list[str] = []
+            stdout_done = False
+            stderr_done = False
+            timed_out = False
+            deadline = time.monotonic() + run.timeout_seconds
+
+            while True:
+                if not timed_out and time.monotonic() > deadline and proc.poll() is None:
+                    timed_out = True
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+
+                try:
+                    item = stdout_q.get(timeout=0.05)
+                except queue.Empty:
+                    item = None
+
+                if item is sentinel:
+                    stdout_done = True
+                elif isinstance(item, str):
+                    ln = item
+                    if run.max_line_bytes > 0:
+                        b = ln.encode("utf-8", errors="replace")
+                        if len(b) > run.max_line_bytes:
+                            run.truncated_stdout_lines += 1
+                            prefix = b[: run.max_line_bytes].decode("utf-8", errors="replace")
+                            logf.write(prefix)
+                            if prefix and not prefix.endswith("\n"):
+                                logf.write("\n")
+                            logf.write(f"...(truncated: {len(b)} bytes > {run.max_line_bytes})\n")
+                            continue
+                    logf.write(ln)
+                    ln_stripped = ln.strip()
+                    if not ln_stripped:
+                        continue
+                    delta, sid = parse_stream_json_line(run.model, ln_stripped)
+                    if sid and not session_id:
+                        session_id = sid
+                    if not delta:
+                        continue
+                    if run.model == "gemini":
+                        buf.append(delta)
+                    else:
+                        final_text = delta
+
+                # Drain stderr quickly (we append it as a captured block later).
+                for _ in range(200):
+                    try:
+                        eitem = stderr_q.get_nowait()
+                    except queue.Empty:
+                        break
+                    if eitem is sentinel:
+                        stderr_done = True
+                        break
+                    if not isinstance(eitem, str):
+                        continue
+                    ln = eitem
                     if run.max_line_bytes > 0:
                         b = ln.encode("utf-8", errors="replace")
                         if len(b) > run.max_line_bytes:
@@ -146,50 +222,42 @@ def run_model_once(run: ModelRun) -> ModelRun:
                             continue
                     stderr_buf.append(ln)
 
-            t = threading.Thread(target=_read_stderr, daemon=True)
-            t.start()
+                if stdout_done and stderr_done and proc.poll() is not None:
+                    break
+                # If we timed out and the process still hasn't exited, don't hang forever.
+                if timed_out and proc.poll() is None and time.monotonic() > deadline + 5:
+                    break
 
-            if proc.stdout is None:
-                raise SynapseError("No stdout pipe from model process")
+            # Ensure the child process is reaped.
+            if proc.poll() is None:
+                try:
+                    proc.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+                    try:
+                        proc.wait(timeout=1)
+                    except Exception:
+                        pass
 
-            for ln in proc.stdout:
-                if run.max_line_bytes > 0:
-                    b = ln.encode("utf-8", errors="replace")
-                    if len(b) > run.max_line_bytes:
-                        run.truncated_stdout_lines += 1
-                        prefix = b[: run.max_line_bytes].decode("utf-8", errors="replace")
-                        logf.write(prefix)
-                        if prefix and not prefix.endswith("\n"):
-                            logf.write("\n")
-                        logf.write(f"...(truncated: {len(b)} bytes > {run.max_line_bytes})\n")
-                        continue
-                logf.write(ln)
-                ln_stripped = ln.strip()
-                if not ln_stripped:
-                    continue
-                delta, sid = parse_stream_json_line(run.model, ln_stripped)
-                if sid and not session_id:
-                    session_id = sid
-                if not delta:
-                    continue
-                if run.model == "gemini":
-                    buf.append(delta)
-                else:
-                    final_text = delta
+            t_out.join(timeout=2)
+            t_err.join(timeout=2)
 
-            try:
-                proc.wait(timeout=run.timeout_seconds)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                t.join(timeout=2)
+            if timed_out:
                 run.exit_code = None
                 run.error = f"timeout after {run.timeout_seconds}s"
                 run.duration_seconds = time.time() - start
                 run.session_id = session_id
                 run.output_text = final_text or "".join(buf)
+                if stderr_buf:
+                    logf.write("\n")
+                    logf.write("### STDERR (captured)\n")
+                    for ln in stderr_buf[-2000:]:
+                        logf.write(ln)
                 return run
 
-            t.join(timeout=5)
             run.exit_code = proc.returncode
             if stderr_buf:
                 logf.write("\n")
