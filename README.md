@@ -44,7 +44,7 @@ Synapse 是一个 **Codex 主导**的多模型研发工作流模板（Codex + Cl
 - `./.synapse/state.json`：最近一次命令/产物/会话信息（用于续跑）
 - `./.synapse/index.json`：plan 索引
 
-你可以用 `synapse ui` 打开本地只读 Web Viewer，浏览以上所有产物（不需要翻目录）。
+你可以用 `synapse ui` 打开本地只读 Web Viewer，默认按 `slug → phase → model` 分组显示时间线，并可切换到 Browse 视图浏览原始目录列表。
 
 ---
 
