@@ -61,6 +61,8 @@ Synapse 是一个 **Codex 主导**的多模型研发工作流模板（Codex + Cl
 然后由 **Codex 主控**自动编排：调用脚本的 `init/pack/plan/run/verify/ui` 原语、生成 prompts、落地最终代码、跑验证并交付。
 
 > 注意：`workflow/feat` 是“对话层”的 meta 命令，不是 `synapse.py` 的子命令；你无法在 shell 里直接 `python synapse.py workflow ...`。
+>
+> 另外：`synapse ui` 是长驻进程（本地 Web Viewer）。在不少环境里 Codex 无法把它常驻在后台，所以当你输入 `synapse ui` 时，Codex 会直接给你一条“复制即用”的启动命令，你在独立终端手动运行即可。
 
 ### 方式 2：手动跑脚本原语（高级/调试）
 
