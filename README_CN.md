@@ -7,8 +7,8 @@ Synapse
 </p>
 
 <p align="center">
-  在 Codex 控制下协调 Claude 和 Gemini<br/>
-  <em>人工审批门控 · 写入保护 · 自动化验证</em>
+  <strong>让多模型 AI 达到生产标准</strong><br/>
+  <em>Claude & Gemini 起草 · Codex 审查 · 放心交付</em>
 </p>
 
 <p align="center">

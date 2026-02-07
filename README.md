@@ -7,8 +7,8 @@ Synapse
 </p>
 
 <p align="center">
-  Coordinates Claude and Gemini under Codex's control<br/>
-  <em>Human approval gate · Write-guarded artifacts · Automated verification</em>
+  <strong>Multi-model AI meets production standards</strong><br/>
+  <em>Draft by Claude & Gemini · Review by Codex · Deploy with confidence</em>
 </p>
 
 <p align="center">
