@@ -302,6 +302,20 @@ def build_context_pack(
                 str(max(1, rg_max_count_per_file)),
                 "--glob",
                 "!**/.synapse/**",
+                "--glob",
+                "!**/node_modules/**",
+                "--glob",
+                "!**/.venv/**",
+                "--glob",
+                "!**/venv/**",
+                "--glob",
+                "!**/__pycache__/**",
+                "--glob",
+                "!**/dist/**",
+                "--glob",
+                "!**/build/**",
+                "--glob",
+                "!**/out/**",
             ]
             if derived_queries:
                 # Derived tokens frequently include '.', '/', etc. Treat them as

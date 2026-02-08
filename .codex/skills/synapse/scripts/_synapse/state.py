@@ -9,11 +9,11 @@ from .common import SynapsePaths, WriteGuard, read_json, read_text, utc_now_iso,
 
 
 def extract_json_meta(markdown: str) -> dict[str, Any]:
-    m = re.search(r"```json[ \t]*\r?\n(\{.*?\})[ \t]*\r?\n```", markdown, flags=re.DOTALL)
+    m = re.search(r"```json[ \t]*\r?\n(.*?)\r?\n```", markdown, flags=re.DOTALL | re.IGNORECASE)
     if not m:
         return {}
     try:
-        meta = json.loads(m.group(1))
+        meta = json.loads(m.group(1).strip())
     except json.JSONDecodeError:
         return {}
     return meta if isinstance(meta, dict) else {}
@@ -30,13 +30,32 @@ def upsert_plan_file(
     extra: Optional[dict[str, Any]] = None,
     guard: WriteGuard | None = None,
 ) -> None:
+    now = utc_now_iso()
+    existing_meta: dict[str, Any] = {}
+    if plan_path.exists():
+        try:
+            existing_meta = extract_json_meta(read_text(plan_path))
+        except Exception:
+            existing_meta = {}
+
+    created_at = now
+    existing_created_at = existing_meta.get("created_at")
+    if isinstance(existing_created_at, str) and existing_created_at.strip():
+        created_at = existing_created_at.strip()
+
+    existing_sessions = existing_meta.get("sessions") if isinstance(existing_meta.get("sessions"), dict) else {}
+    merged_sessions = dict(existing_sessions)
+    if isinstance(sessions, dict):
+        merged_sessions.update(sessions)
+
     meta: dict[str, Any] = {
         "synapse_version": 1,
         "slug": slug,
-        "created_at": utc_now_iso(),
+        "created_at": created_at,
+        "updated_at": now,
         "request": request,
         "context_pack": str(context_pack_path) if context_pack_path else None,
-        "sessions": sessions,
+        "sessions": merged_sessions,
     }
     if extra:
         meta.update(extra)
@@ -66,7 +85,7 @@ def upsert_plan_file(
 
 def _replace_json_meta(markdown: str, meta: dict[str, Any]) -> str:
     block = "\n".join(["```json", json.dumps(meta, ensure_ascii=False, indent=2, sort_keys=True), "```"])
-    pattern = re.compile(r"```json[ \t]*\r?\n(\{.*?\})[ \t]*\r?\n```", flags=re.DOTALL)
+    pattern = re.compile(r"```json[ \t]*\r?\n(.*?)\r?\n```", flags=re.DOTALL | re.IGNORECASE)
     if not pattern.search(markdown):
         raise ValueError("plan file is missing json meta block")
     # Use a function replacement to avoid backslash escapes in replacement strings.
