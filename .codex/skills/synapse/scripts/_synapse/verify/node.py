@@ -36,6 +36,9 @@ def _pick_node_pm(project_root: Path) -> tuple[str, list[str], list[str]]:
         return ("pnpm", base, base + ["install", "--frozen-lockfile"])
     if (project_root / "yarn.lock").exists():
         base = _pm_base_argv("yarn")
+        # Yarn Berry (v2+) uses `--immutable`; Yarn Classic (v1) uses `--frozen-lockfile`.
+        if (project_root / ".yarnrc.yml").exists() or (project_root / ".yarn").exists():
+            return ("yarn", base, base + ["install", "--immutable"])
         return ("yarn", base, base + ["install", "--frozen-lockfile"])
     base = _pm_base_argv("npm")
     if (project_root / "package-lock.json").exists():

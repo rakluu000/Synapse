@@ -69,6 +69,11 @@ def cmd_run(args: argparse.Namespace) -> int:
     if not isinstance(prompt_file_raw, str) or not prompt_file_raw.strip():
         raise SynapseError("run requires --prompt-file <path>")
     prompt_file = Path(prompt_file_raw)
+    # On Windows, a path like "C:foo" is drive-relative (not absolute) and will
+    # ignore `project_root` when joined (surprising and unsafe). Require either
+    # an absolute path ("C:\\foo") or a normal relative path ("prompts\\x.md").
+    if prompt_file.anchor and not prompt_file.is_absolute():
+        raise SynapseError(f"Invalid --prompt-file path (drive-relative): {prompt_file_raw!r}")
     prompt_file = prompt_file if prompt_file.is_absolute() else (project_root / prompt_file).resolve()
     if not prompt_file.exists() or not prompt_file.is_file():
         raise SynapseError(f"Prompt file not found: {prompt_file}")
@@ -79,6 +84,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     var_files = _parse_kv(list(getattr(args, "var_file", []) or []))
     for k, p in var_files.items():
         pp = Path(p)
+        if pp.anchor and not pp.is_absolute():
+            raise SynapseError(f"Invalid --var-file path (drive-relative) for {k}: {p!r}")
         pp = pp if pp.is_absolute() else (project_root / pp).resolve()
         if not pp.exists():
             raise SynapseError(f"Var file not found for {k}: {pp}")
@@ -150,8 +157,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     plan_path_raw = getattr(args, "plan_path", None)
     if plan_path_raw and run.session_id:
         plan_path = Path(plan_path_raw)
-        plan_path = plan_path if plan_path.is_absolute() else (project_root / plan_path).resolve()
-        if plan_path.exists():
+        if plan_path.anchor and not plan_path.is_absolute():
+            print(f"plan_session_update: skipped (drive-relative plan_path): {plan_path_raw!r}")
+            plan_path = None
+        else:
+            plan_path = plan_path if plan_path.is_absolute() else (project_root / plan_path).resolve()
+        if plan_path is not None and plan_path.exists():
             try:
                 update_plan_session(plan_path=plan_path, model=model, session_id=run.session_id, guard=guard)
             except Exception as e:

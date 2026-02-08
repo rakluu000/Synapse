@@ -40,7 +40,9 @@ def model_argv(model: str, *, resume: Optional[str]) -> list[str]:
     if model == "gemini":
         # NOTE: keep CLI args short to avoid Windows command line length limits.
         # Provide the full prompt via stdin (see run_model_once).
-        cmd = "gemini.cmd" if os.name == "nt" else "gemini"
+        cmd = "gemini"
+        if os.name == "nt" and shutil.which("gemini.cmd"):
+            cmd = "gemini.cmd"
         # Never auto-approve actions. In headless mode, Gemini CLI will deny most
         # mutating tools by policy rather than prompting interactively.
         argv = [cmd, "-o", "stream-json", "--approval-mode", "default", "-p", ""]
