@@ -104,6 +104,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         defaults=defaults,
         slug=slug,
         phase=phase,
+        run_ts=ts,
     )
     if run.exit_code == 0 and (run.output_text or "").strip() == "":
         # Keep stdout stable (used by humans and potentially by a controller);

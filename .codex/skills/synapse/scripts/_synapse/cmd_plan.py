@@ -9,6 +9,7 @@ from .common import (
     WriteGuard,
     find_project_root,
     load_defaults,
+    resolve_path_within_root,
     slugify,
     synapse_paths,
     unique_path,
@@ -92,8 +93,7 @@ def cmd_plan(args: argparse.Namespace) -> int:
     include_files_raw = list(getattr(args, "include_file", []) or [])
     include_files: list[Path] = []
     for p in include_files_raw:
-        pp = Path(p)
-        include_files.append(pp if pp.is_absolute() else (project_root / pp).resolve())
+        include_files.append(resolve_path_within_root(project_root, Path(p)))
 
     context_pack: Optional[Path] = None
     if not bool(getattr(args, "no_pack", False)):

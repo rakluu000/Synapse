@@ -299,6 +299,16 @@ def build_context_pack(
                 cwd=project_root,
                 timeout_seconds=60,
             )
+            if rg.code not in (0, 1):
+                parts.append("```")
+                msg = f"(rg failed: exit_code={rg.code})"
+                if rg.stderr.strip():
+                    msg += "\n" + truncate_bytes(rg.stderr.strip(), 4000).rstrip()
+                parts.append(msg)
+                parts.append("```")
+                parts.append("")
+                continue
+
             lines = [ln for ln in rg.stdout.splitlines() if ln.strip()]
             if not lines:
                 parts.append("```")
@@ -327,7 +337,13 @@ def build_context_pack(
     if not key_files:
         parts.append("(none selected)")
     for p in key_files:
-        rel = p.relative_to(project_root) if p.is_absolute() else p
+        if p.is_absolute():
+            try:
+                rel = p.relative_to(project_root)
+            except Exception:
+                rel = p
+        else:
+            rel = p
         parts.append(f"### `{rel}`")
         parts.append("")
         parts.append("```")

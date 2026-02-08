@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
-from .common import SynapseError, WriteGuard, safe_mkdir, synapse_paths
+from .common import SynapseError, WriteGuard, safe_mkdir, synapse_paths, unique_path
 
 
 @dataclass
@@ -309,6 +309,7 @@ def run_model_with_retries(
     defaults: dict[str, Any],
     slug: str,
     phase: str,
+    run_ts: Optional[str] = None,
 ) -> ModelRun:
     runner = defaults.get("runner", {})
     timeout_seconds = int(runner.get("timeout_seconds", 3600))
@@ -324,12 +325,13 @@ def run_model_with_retries(
 
     guard = WriteGuard.from_defaults(project_root=project_root, defaults=defaults)
 
-    ts = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    ts = (run_ts or "").strip() or _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
 
     last_run: Optional[ModelRun] = None
     for attempt in range(1, retries + 2):
         attempt_suffix = "" if attempt == 1 else f"-attempt{attempt}"
-        log_path = synapse_paths(project_root).logs_dir / f"{ts}-{slug}-{phase}-{model}-stream{attempt_suffix}.jsonl"
+        base_log_path = synapse_paths(project_root).logs_dir / f"{ts}-{slug}-{phase}-{model}-stream{attempt_suffix}.jsonl"
+        log_path = unique_path(base_log_path)
         guard.assert_allowed(log_path)
         run = ModelRun(
             model=model,

@@ -282,9 +282,36 @@ def unique_path(path: Path) -> Path:
     raise SynapseError(f"Unable to allocate unique path for: {path}")
 
 
+def resolve_path_within_root(project_root: Path, path: Path) -> Path:
+    """
+    Resolve a path (absolute or relative to project_root) and ensure it stays within project_root.
+
+    Useful for user-provided paths like --include-file, to avoid accidental traversal outside
+    the repo and to keep downstream relative path logic safe.
+    """
+    base = path if path.is_absolute() else (project_root / path)
+    try:
+        full = base.resolve()
+    except Exception:
+        full = base.absolute()
+
+    try:
+        full.relative_to(project_root.resolve())
+    except Exception as e:
+        raise SynapseError(f"Path escapes project root: {path} -> {full}") from e
+
+    return full
+
+
 def truncate_bytes(text: str, max_bytes: int) -> str:
+    if max_bytes <= 0:
+        return ""
     b = text.encode("utf-8", errors="replace")
     if len(b) <= max_bytes:
         return text
-    cut = b[: max_bytes - 10]
-    return cut.decode("utf-8", errors="replace") + "\n…(truncated)\n"
+    suffix = "\n…(truncated)\n"
+    suffix_b = suffix.encode("utf-8", errors="replace")
+    if len(suffix_b) >= max_bytes:
+        return suffix_b[:max_bytes].decode("utf-8", errors="replace")
+    cut = b[: max(0, max_bytes - len(suffix_b))]
+    return cut.decode("utf-8", errors="replace") + suffix

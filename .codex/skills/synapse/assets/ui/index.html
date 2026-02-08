@@ -349,7 +349,7 @@
         });
 
         (tree.log_files || []).forEach((path) => {
-          let m = path.match(/^\.synapse\/logs\/(\d{8}-\d{6})-(.+)-(claude|gemini)-stream(?:-attempt(\d+))?\.jsonl$/);
+          let m = path.match(/^\.synapse\/logs\/(\d{8}-\d{6})-(.+)-(claude|gemini)-stream(?:-attempt(\d+))?(?:-\d+)?\.jsonl$/);
           if (m) {
             const ts = m[1];
             const parts = splitSlugPhase(m[2], knownSlugs);

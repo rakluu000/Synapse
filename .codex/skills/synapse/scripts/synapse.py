@@ -22,7 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    sub_init = sub.add_parser("init", help="Initialize ./synapse artifacts + AGENTS.md/.gitignore (idempotent)")
+    sub_init = sub.add_parser("init", help="Initialize ./.synapse artifacts + AGENTS.md/.gitignore (idempotent)")
     sub_init.set_defaults(func=cmd_init)
 
     sub_pack = sub.add_parser("pack", help="Build a context pack under .synapse/context/**")
