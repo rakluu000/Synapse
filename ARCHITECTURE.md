@@ -231,7 +231,8 @@ Builds a markdown document containing project context for model prompts.
 |---------|---------|---------|
 | `rg.max_depth` | 25 | Max directory depth for rg |
 | `rg.max_queries` | 10 | Max number of rg queries |
-| `rg.max_matches_per_query` | 80 | Max matches per query |
+| `rg.max_count_per_file` | 20 | Per-file match cap passed to `rg --max-count` |
+| `rg.max_matches_per_query` | 80 | Max matches included per query |
 | `rg.max_total_matches` | 200 | Global match cap |
 | `rg.max_filesize` | 1M | Skip files larger than this |
 | `snippets.max_files` | 20 | Max key files to include |
@@ -272,6 +273,8 @@ Detects project toolchain by marker files and generates verification steps. Each
 **Location**: `cmd_verify.py:69-76`
 
 Priority: `pnpm-lock.yaml` → `yarn.lock` → `package-lock.json` → fallback `npm install`
+
+If `pnpm`/`yarn` isn't installed, Synapse will try to run them via `corepack` (when available).
 
 ### Pytest Detection
 
@@ -463,7 +466,7 @@ The `.gitignore` entry `/.synapse/` is similarly managed (idempotent append).
     "stream_json": { "max_line_bytes": 10485760 }
   },
   "context_pack": {
-    "rg": { "max_depth": 25, "max_queries": 10, "max_matches_per_query": 80, "max_total_matches": 200, "max_filesize": "1M" },
+    "rg": { "max_depth": 25, "max_queries": 10, "max_count_per_file": 20, "max_matches_per_query": 80, "max_total_matches": 200, "max_filesize": "1M" },
     "snippets": { "max_files": 20, "max_lines_per_file": 160, "max_bytes_per_file": 20000 },
     "git": { "diff_max_bytes": 200000, "diff_max_lines": 2000, "status_max_lines": 300 }
   },

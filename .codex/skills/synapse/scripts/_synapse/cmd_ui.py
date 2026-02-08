@@ -38,9 +38,18 @@ def _list_rel_files(*, project_root: Path, root: Path) -> list[str]:
     if not root.exists():
         return []
     out: list[str] = []
-    for p in sorted(root.rglob("*")):
-        if p.is_file():
-            out.append(str(p.relative_to(project_root)).replace("\\", "/"))
+    try:
+        paths = sorted(root.rglob("*"))
+    except Exception:
+        return []
+    for p in paths:
+        try:
+            if not p.is_file():
+                continue
+            rel = p.relative_to(project_root)
+        except Exception:
+            continue
+        out.append(str(rel).replace("\\", "/"))
     return out
 
 
@@ -58,6 +67,20 @@ def cmd_ui(args: argparse.Namespace) -> int:
     syn_root = paths.synapse_dir
     if not syn_root.exists():
         raise SynapseError(f".synapse not found under: {project_root} (run synapse init first)")
+    # Defense-in-depth: refuse to serve if `.synapse` resolves outside the project root
+    # (e.g., junction/symlink pointing elsewhere).
+    try:
+        proj_resolved = project_root.resolve()
+    except Exception:
+        proj_resolved = project_root.absolute()
+    try:
+        syn_resolved = syn_root.resolve()
+    except Exception:
+        syn_resolved = syn_root.absolute()
+    try:
+        syn_resolved.relative_to(proj_resolved)
+    except Exception as e:
+        raise SynapseError(f".synapse resolves outside project root: {syn_resolved} (project_root: {proj_resolved})") from e
 
     host = str(getattr(args, "host", "127.0.0.1"))
     port = int(getattr(args, "port", 8765))
@@ -132,4 +155,3 @@ def cmd_ui(args: argparse.Namespace) -> int:
     finally:
         httpd.server_close()
     return 0
-

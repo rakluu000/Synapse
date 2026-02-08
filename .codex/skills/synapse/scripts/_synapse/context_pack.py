@@ -131,14 +131,27 @@ def select_key_files(project_root: Path, *, max_files: int, extra_files: list[Pa
 
     if is_git_repo(project_root):
         try:
-            st = run_cmd(["git", "status", "--porcelain"], cwd=project_root, timeout_seconds=20)
+            st = run_cmd(["git", "status", "--porcelain", "-z"], cwd=project_root, timeout_seconds=20)
             if st.code == 0:
-                for line in st.stdout.splitlines():
-                    if not line.strip():
+                items = st.stdout.split("\0")
+                i = 0
+                while i < len(items):
+                    entry = items[i]
+                    i += 1
+                    if not entry:
                         continue
-                    path_part = line[3:].strip()
-                    if " -> " in path_part:
-                        path_part = path_part.split(" -> ", 1)[1].strip()
+                    # Format: XY<space>path. For renames/copies, the next NUL-terminated
+                    # token is the new path.
+                    if len(entry) < 4:
+                        continue
+                    status = entry[:2]
+                    path_part = entry[3:]
+                    if status[0] in {"R", "C"} or status[1] in {"R", "C"}:
+                        if i < len(items) and items[i]:
+                            path_part = items[i]
+                        i += 1
+                    if not path_part:
+                        continue
                     p = project_root / path_part
                     if p.exists() and p.is_file():
                         if p.resolve() not in explicit and _is_sensitive_file_candidate(p):
@@ -198,6 +211,7 @@ def build_context_pack(
     rg_max_queries = int(rg_cfg.get("max_queries", 10))
     rg_max_matches_per_query = int(rg_cfg.get("max_matches_per_query", 80))
     rg_max_total_matches = int(rg_cfg.get("max_total_matches", 200))
+    rg_max_count_per_file = int(rg_cfg.get("max_count_per_file", 20))
     rg_max_filesize = str(rg_cfg.get("max_filesize", "1M"))
 
     max_files = int(snip_cfg.get("max_files", 20))
@@ -285,7 +299,7 @@ def build_context_pack(
                 "--max-filesize",
                 rg_max_filesize,
                 "--max-count",
-                str(max(1, rg_max_matches_per_query // 10)),
+                str(max(1, rg_max_count_per_file)),
                 "--glob",
                 "!**/.synapse/**",
             ]

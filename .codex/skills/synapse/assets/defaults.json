@@ -16,6 +16,7 @@
     "rg": {
       "max_depth": 25,
       "max_queries": 10,
+      "max_count_per_file": 20,
       "max_matches_per_query": 80,
       "max_total_matches": 200,
       "max_filesize": "1M"

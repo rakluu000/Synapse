@@ -36,7 +36,7 @@ class ModelRun:
     truncated_stderr_lines: int = 0
 
 
-def model_argv(model: str, prompt: str, *, resume: Optional[str]) -> list[str]:
+def model_argv(model: str, *, resume: Optional[str]) -> list[str]:
     if model == "gemini":
         # NOTE: keep CLI args short to avoid Windows command line length limits.
         # Provide the full prompt via stdin (see run_model_once).
@@ -101,7 +101,7 @@ def parse_stream_json_line(model: str, line: str) -> tuple[Optional[str], Option
 
 def run_model_once(run: ModelRun) -> ModelRun:
     start = time.time()
-    argv = model_argv(run.model, run.prompt, resume=run.resume)
+    argv = model_argv(run.model, resume=run.resume)
 
     if run.guard:
         run.guard.assert_allowed(run.log_path)
