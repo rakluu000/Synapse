@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import re
 import sys
 from pathlib import Path
 from typing import Optional
@@ -82,6 +83,12 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     vars = _parse_kv(list(getattr(args, "var", []) or []))
     var_files = _parse_kv(list(getattr(args, "var_file", []) or []))
+    if var_files:
+        print(
+            "synapse run note: --var-file contents are inlined into the rendered prompt and saved under .synapse/prompts/**; "
+            "avoid passing secrets unless necessary.",
+            file=sys.stderr,
+        )
     for k, p in var_files.items():
         pp = Path(p)
         if pp.anchor and not pp.is_absolute():
@@ -92,6 +99,12 @@ def cmd_run(args: argparse.Namespace) -> int:
         vars[k] = pp.read_text(encoding="utf-8", errors="replace")
 
     rendered = _render_prompt(template, vars=vars)
+    placeholders = sorted(set(re.findall(r"{{([A-Za-z0-9_]+)}}", template)))
+    if placeholders:
+        missing = [k for k in placeholders if ("{{" + k + "}}") in rendered]
+        if missing:
+            print(f"synapse run warning: unreplaced template variables: {', '.join(missing)}", file=sys.stderr)
+            print("synapse run hint: pass them via --var KEY=VALUE or --var-file KEY=PATH", file=sys.stderr)
 
     ts = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
     prompt_out = unique_path(paths.prompts_dir / f"{ts}-{slug}-{phase}-{model}.prompt.md")
