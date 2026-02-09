@@ -63,7 +63,7 @@ def derive_rg_queries(query: str, *, max_queries: int) -> list[str]:
         # Chinese words are often 2 chars; keep the bar lower for CJK.
         return 2 if _has_cjk(s) else 3
 
-    tokens = re.findall(r"[A-Za-z0-9_][A-Za-z0-9_./:-]{1,}", query)
+    tokens = re.findall(r"[A-Za-z0-9_][A-Za-z0-9_./:\-\\]{1,}", query)
     cjk_seqs = re.findall(r"[\u4e00-\u9fff]{2,}", query)
     seen: set[str] = set()
     out: list[str] = []

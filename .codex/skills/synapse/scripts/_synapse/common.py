@@ -34,6 +34,26 @@ def _is_windows_reserved_name(name: str) -> bool:
     return False
 
 
+def _normalize_write_root_token(token: str) -> str:
+    """
+    Normalize a configured allowed write root (first path component).
+
+    - Strip trailing slashes/backslashes (".synapse/" -> ".synapse")
+    - Treat "./" and ".\\" prefixes as cosmetic ("./.synapse" -> ".synapse")
+    - On Windows, compare case-insensitively (use casefold)
+    """
+    t = (token or "").strip()
+    t = t.rstrip("/\\")
+    if t.startswith("./") or t.startswith(".\\"):
+        t = t[2:]
+    if os.name == "nt":
+        t = t.casefold()
+    return t
+
+
+_FILE_ONLY_WRITE_ROOTS = frozenset(_normalize_write_root_token(x) for x in ("AGENTS.md", ".gitignore"))
+
+
 @dataclass(frozen=True)
 class WriteGuard:
     project_root: Path
@@ -45,9 +65,20 @@ class WriteGuard:
         roots = safety.get("allowed_write_roots") if isinstance(safety, dict) else None
         if not isinstance(roots, list):
             roots = []
-        allowed = [str(r).strip() for r in roots if isinstance(r, str) and str(r).strip()]
+        allowed: list[str] = []
+        seen: set[str] = set()
+        for r in roots:
+            if not isinstance(r, str):
+                continue
+            norm = _normalize_write_root_token(r)
+            if not norm:
+                continue
+            if norm in seen:
+                continue
+            seen.add(norm)
+            allowed.append(norm)
         if not allowed:
-            allowed = ["AGENTS.md", ".gitignore", ".synapse"]
+            allowed = [_normalize_write_root_token(x) for x in ("AGENTS.md", ".gitignore", ".synapse")]
         return cls(project_root=project_root.resolve(), allowed_roots=tuple(allowed))
 
     def assert_allowed(self, path: Path) -> None:
@@ -66,10 +97,10 @@ class WriteGuard:
         if not parts or parts == (".",):
             raise SynapseError(f"Write target is not a file path: {full}")
 
-        root = parts[0]
+        root = _normalize_write_root_token(parts[0])
         if root in self.allowed_roots:
             # Some roots are intended to be files, not directories.
-            if root in {"AGENTS.md", ".gitignore"} and len(parts) != 1:
+            if root in _FILE_ONLY_WRITE_ROOTS and len(parts) != 1:
                 raise SynapseError(f"Write blocked by safety policy: {full} (root {root} is file-only)")
             return
         raise SynapseError(f"Write blocked by safety policy: {full} (allowed roots: {', '.join(self.allowed_roots)})")

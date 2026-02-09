@@ -158,7 +158,6 @@ def run_model_once(run: ModelRun) -> ModelRun:
             t_out.start()
             t_err.start()
 
-            stderr_buf: list[str] = []
             stdout_done = False
             stderr_done = False
             timed_out = False
@@ -214,7 +213,7 @@ def run_model_once(run: ModelRun) -> ModelRun:
                     else:
                         final_text = delta
 
-                # Drain stderr quickly (we append it as a captured block later).
+                # Drain stderr quickly and stream it into the same jsonl log as structured lines.
                 for _ in range(200):
                     try:
                         eitem = stderr_q.get_nowait()
@@ -231,11 +230,27 @@ def run_model_once(run: ModelRun) -> ModelRun:
                         if len(b) > run.max_line_bytes:
                             run.truncated_stderr_lines += 1
                             prefix = b[: run.max_line_bytes].decode("utf-8", errors="replace")
-                            if prefix and not prefix.endswith("\n"):
-                                prefix += "\n"
-                            stderr_buf.append(prefix + f"...(truncated: {len(b)} bytes > {run.max_line_bytes})\n")
+                            logf.write(
+                                json.dumps(
+                                    {
+                                        "type": "synapse",
+                                        "subtype": "stderr_truncated",
+                                        "original_bytes": len(b),
+                                        "limit_bytes": run.max_line_bytes,
+                                        "prefix": prefix,
+                                    },
+                                    ensure_ascii=False,
+                                )
+                                + "\n"
+                            )
                             continue
-                    stderr_buf.append(ln)
+                    logf.write(
+                        json.dumps(
+                            {"type": "stderr", "content": ln.rstrip("\r\n")},
+                            ensure_ascii=False,
+                        )
+                        + "\n"
+                    )
 
                 if stdout_done and stderr_done and proc.poll() is not None:
                     break
@@ -266,27 +281,9 @@ def run_model_once(run: ModelRun) -> ModelRun:
                 run.duration_seconds = time.time() - start
                 run.session_id = session_id
                 run.output_text = final_text or "".join(buf)
-                if stderr_buf:
-                    for ln in stderr_buf[-2000:]:
-                        logf.write(
-                            json.dumps(
-                                {"type": "stderr", "content": ln.rstrip("\r\n")},
-                                ensure_ascii=False,
-                            )
-                            + "\n"
-                        )
                 return run
 
             run.exit_code = proc.returncode
-            if stderr_buf:
-                for ln in stderr_buf[-2000:]:
-                    logf.write(
-                        json.dumps(
-                            {"type": "stderr", "content": ln.rstrip("\r\n")},
-                            ensure_ascii=False,
-                        )
-                        + "\n"
-                    )
 
     except Exception as e:
         # Ensure the log file contains the error even if the process failed to spawn.
