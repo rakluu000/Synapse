@@ -186,10 +186,19 @@ def run_model_once(run: ModelRun) -> ModelRun:
                         if len(b) > run.max_line_bytes:
                             run.truncated_stdout_lines += 1
                             prefix = b[: run.max_line_bytes].decode("utf-8", errors="replace")
-                            logf.write(prefix)
-                            if prefix and not prefix.endswith("\n"):
-                                logf.write("\n")
-                            logf.write(f"...(truncated: {len(b)} bytes > {run.max_line_bytes})\n")
+                            logf.write(
+                                json.dumps(
+                                    {
+                                        "type": "synapse",
+                                        "subtype": "stdout_truncated",
+                                        "original_bytes": len(b),
+                                        "limit_bytes": run.max_line_bytes,
+                                        "prefix": prefix,
+                                    },
+                                    ensure_ascii=False,
+                                )
+                                + "\n"
+                            )
                             continue
                     logf.write(ln)
                     ln_stripped = ln.strip()
@@ -258,18 +267,26 @@ def run_model_once(run: ModelRun) -> ModelRun:
                 run.session_id = session_id
                 run.output_text = final_text or "".join(buf)
                 if stderr_buf:
-                    logf.write("\n")
-                    logf.write("### STDERR (captured)\n")
                     for ln in stderr_buf[-2000:]:
-                        logf.write(ln)
+                        logf.write(
+                            json.dumps(
+                                {"type": "stderr", "content": ln.rstrip("\r\n")},
+                                ensure_ascii=False,
+                            )
+                            + "\n"
+                        )
                 return run
 
             run.exit_code = proc.returncode
             if stderr_buf:
-                logf.write("\n")
-                logf.write("### STDERR (captured)\n")
                 for ln in stderr_buf[-2000:]:
-                    logf.write(ln)
+                    logf.write(
+                        json.dumps(
+                            {"type": "stderr", "content": ln.rstrip("\r\n")},
+                            ensure_ascii=False,
+                        )
+                        + "\n"
+                    )
 
     except Exception as e:
         # Ensure the log file contains the error even if the process failed to spawn.
@@ -278,8 +295,17 @@ def run_model_once(run: ModelRun) -> ModelRun:
                 run.guard.assert_allowed(run.log_path)
             safe_mkdir(run.log_path.parent)
             with run.log_path.open("a", encoding="utf-8", newline="\n") as logf:
-                logf.write("\n")
-                logf.write(f"### SYNAPSE ERROR\n{type(e).__name__}: {e}\n")
+                logf.write(
+                    json.dumps(
+                        {
+                            "type": "synapse_error",
+                            "error_type": type(e).__name__,
+                            "message": str(e),
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
         except Exception:
             pass
         run.exit_code = None

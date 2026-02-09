@@ -140,6 +140,11 @@ def run_cmd(
     timeout_seconds: Optional[int] = None,
     check: bool = False,
 ) -> CmdResult:
+    if cwd is not None:
+        if not cwd.exists():
+            raise SynapseError(f"Working directory not found: {cwd}")
+        if not cwd.is_dir():
+            raise SynapseError(f"Working directory is not a directory: {cwd}")
     try:
         proc = subprocess.run(
             argv,
