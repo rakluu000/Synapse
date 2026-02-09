@@ -54,8 +54,8 @@ class WriteGuard:
         full = path if path.is_absolute() else (self.project_root / path)
         try:
             full = full.resolve()
-        except Exception:
-            full = full.absolute()
+        except Exception as e:
+            raise SynapseError(f"Unable to resolve write path: {full}") from e
 
         try:
             rel = full.relative_to(self.project_root)
@@ -68,6 +68,9 @@ class WriteGuard:
 
         root = parts[0]
         if root in self.allowed_roots:
+            # Some roots are intended to be files, not directories.
+            if root in {"AGENTS.md", ".gitignore"} and len(parts) != 1:
+                raise SynapseError(f"Write blocked by safety policy: {full} (root {root} is file-only)")
             return
         raise SynapseError(f"Write blocked by safety policy: {full} (allowed roots: {', '.join(self.allowed_roots)})")
 
@@ -248,9 +251,18 @@ def ensure_synapse_layout(paths: SynapsePaths, *, guard: WriteGuard | None = Non
     state.setdefault("created_at", utc_now_iso())
     state["updated_at"] = utc_now_iso()
     state.setdefault("last", {})
-    state.setdefault("sessions", {})
-    state["sessions"].setdefault("gemini", {"by_slug": {}})
-    state["sessions"].setdefault("claude", {"by_slug": {}})
+    sessions = state.get("sessions")
+    if not isinstance(sessions, dict):
+        sessions = {}
+        state["sessions"] = sessions
+    for model in ("gemini", "claude"):
+        m = sessions.get(model)
+        if not isinstance(m, dict):
+            m = {}
+            sessions[model] = m
+        by_slug = m.get("by_slug")
+        if not isinstance(by_slug, dict):
+            m["by_slug"] = {}
     write_json_atomic(paths.state_json, state, guard=guard)
 
 
@@ -292,8 +304,8 @@ def resolve_path_within_root(project_root: Path, path: Path) -> Path:
     base = path if path.is_absolute() else (project_root / path)
     try:
         full = base.resolve()
-    except Exception:
-        full = base.absolute()
+    except Exception as e:
+        raise SynapseError(f"Unable to resolve path: {path} -> {base}") from e
 
     try:
         full.relative_to(project_root.resolve())

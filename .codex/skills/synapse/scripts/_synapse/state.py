@@ -121,15 +121,25 @@ def update_state(
     state["project_root"] = str(paths.project_root)
     state["updated_at"] = utc_now_iso()
     state["last"] = last
-    state.setdefault("sessions", {"gemini": {"by_slug": {}}, "claude": {"by_slug": {}}})
+    sessions = state.get("sessions")
+    if not isinstance(sessions, dict):
+        sessions = {}
+        state["sessions"] = sessions
     for model in ("gemini", "claude"):
-        state["sessions"].setdefault(model, {"by_slug": {}})
+        m = sessions.get(model)
+        if not isinstance(m, dict):
+            m = {}
+            sessions[model] = m
+        by_slug = m.get("by_slug")
+        if not isinstance(by_slug, dict):
+            m["by_slug"] = {}
 
     if sessions_by_slug:
         for model, mapping in sessions_by_slug.items():
-            state["sessions"].setdefault(model, {"by_slug": {}})
-            by_slug = state["sessions"][model].setdefault("by_slug", {})
-            if isinstance(by_slug, dict):
+            if model not in ("gemini", "claude"):
+                continue
+            by_slug = sessions[model]["by_slug"]
+            if isinstance(by_slug, dict) and isinstance(mapping, dict):
                 by_slug.update(mapping)
 
     write_json_atomic(paths.state_json, state, guard=guard)

@@ -123,7 +123,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         )
 
     out_md = unique_path(paths.patches_dir / f"{ts}-{slug}-{phase}-{model}.md")
-    write_text(out_md, run.output_text.strip() + "\n", guard=guard)
+    write_text(out_md, (run.output_text or "").rstrip("\n") + "\n", guard=guard)
 
     out_diff = None
     diff = extract_unified_diff(run.output_text or "")
