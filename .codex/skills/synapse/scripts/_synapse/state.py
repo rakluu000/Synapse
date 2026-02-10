@@ -104,6 +104,8 @@ def update_plan_session(*, plan_path: Path, model: str, session_id: str, guard: 
         sessions = {}
     sessions[model] = session_id
     meta["sessions"] = sessions
+    # Keep meta self-consistent: this function performs a write, so bump updated_at.
+    meta["updated_at"] = utc_now_iso()
     write_text(plan_path, _replace_json_meta(text, meta), guard=guard)
 
 
