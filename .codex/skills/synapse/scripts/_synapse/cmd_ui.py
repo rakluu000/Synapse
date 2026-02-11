@@ -67,6 +67,8 @@ def cmd_ui(args: argparse.Namespace) -> int:
     syn_root = paths.synapse_dir
     if not syn_root.exists():
         raise SynapseError(f".synapse not found under: {project_root} (run synapse init first)")
+    if not syn_root.is_dir():
+        raise SynapseError(f".synapse is not a directory: {syn_root} (delete/rename it and run synapse init)")
     # Defense-in-depth: refuse to serve if `.synapse` resolves outside the project root
     # (e.g., junction/symlink pointing elsewhere).
     try:

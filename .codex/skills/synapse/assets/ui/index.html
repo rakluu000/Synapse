@@ -177,6 +177,7 @@
       let active = null;
       let view = 'timeline';
       let lastTree = null;
+      let lastSlugHints = [];
 
       async function getJson(url) {
         const res = await fetch(url);
@@ -261,7 +262,7 @@
         return { slug: base.slice(0, idx), phase: base.slice(idx + 1) };
       }
 
-      function buildTimeline(tree) {
+      function buildTimeline(tree, slugHints) {
         const slugs = new Map(); // slug -> { slug, plan_files:[], phases: Map(phase -> {phase, context_files:[], models: Map(model -> {model, runs: Map(ts -> run)})}) }
         const verify_logs = []; // { ts, path, name }
         const ungrouped = { plan_files: [], context_files: [], prompt_files: [], patch_files: [], log_files: [] };
@@ -291,17 +292,26 @@
           return modelObj.runs.get(ts);
         }
 
-        const knownSlugs = [];
+        const knownSlugsSet = new Set();
+        function addKnownSlug(s) {
+          if (s === null || s === undefined) return;
+          const t = String(s).trim();
+          if (!t) return;
+          knownSlugsSet.add(t);
+        }
+
+        (slugHints || []).forEach(addKnownSlug);
 
         (tree.plan_files || []).forEach((path) => {
           const m = path.match(/^\.synapse\/plan\/(.+)\.md$/);
           if (!m) return ungrouped.plan_files.push(path);
           const slug = m[1];
+          addKnownSlug(slug);
           getSlug(slug).plan_files.push(path);
         });
 
-        // Prefer longest match first.
-        knownSlugs.push(...Array.from(slugs.keys()).sort((a, b) => b.length - a.length));
+        // Prefer longest match first to avoid prefix collisions (e.g. "my" vs "my-task").
+        const knownSlugs = Array.from(knownSlugsSet).sort((a, b) => b.length - a.length);
 
         (tree.context_files || []).forEach((path) => {
           const m = path.match(/^\.synapse\/context\/(.+)\.md$/);
@@ -416,8 +426,8 @@
         addSection('Logs', tree.log_files);
       }
 
-      function renderTimeline(tree) {
-        const tl = buildTimeline(tree);
+      function renderTimeline(tree, slugHints) {
+        const tl = buildTimeline(tree, slugHints);
 
         // State (always handy)
         if (tree.state_files && tree.state_files.length) {
@@ -605,13 +615,41 @@
         active = null;
         if (!lastTree) return;
         if (view === 'browse') return renderBrowse(lastTree);
-        return renderTimeline(lastTree);
+        return renderTimeline(lastTree, lastSlugHints);
+      }
+
+      async function getStateSlugHints(tree) {
+        const files = (tree && tree.state_files) ? tree.state_files : [];
+        const statePath = files.find((p) => p === '.synapse/state.json' || p.endsWith('/state.json'));
+        if (!statePath) return [];
+        try {
+          const state = await getJson('/api/file?path=' + encodeURIComponent(statePath));
+          const slugs = new Set();
+          if (state && typeof state === 'object') {
+            if (state.last && typeof state.last.slug === 'string' && state.last.slug.trim()) {
+              slugs.add(state.last.slug.trim());
+            }
+            const sessions = state.sessions;
+            if (sessions && typeof sessions === 'object') {
+              ['gemini', 'claude'].forEach((m) => {
+                const bySlug = sessions[m] && sessions[m].by_slug;
+                if (bySlug && typeof bySlug === 'object') {
+                  Object.keys(bySlug).forEach((s) => slugs.add(s));
+                }
+              });
+            }
+          }
+          return Array.from(slugs);
+        } catch (_e) {
+          return [];
+        }
       }
 
       async function refresh() {
         statusEl.textContent = 'Refreshing...';
         try {
           lastTree = await getJson('/api/tree');
+          lastSlugHints = await getStateSlugHints(lastTree);
           statusEl.textContent = '';
           render();
         } catch (e) {
