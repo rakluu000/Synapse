@@ -1,12 +1,11 @@
 from __future__ import annotations
-
 import argparse
 import datetime as _dt
 from pathlib import Path
-
 from .common import (
     SynapseError,
     WriteGuard,
+    ensure_synapse_layout,
     find_project_root,
     load_defaults,
     resolve_path_within_root,
@@ -17,13 +16,10 @@ from .common import (
 from .context_pack import build_context_pack
 from .state import rebuild_index, update_state
 
-
 def cmd_pack(args: argparse.Namespace) -> int:
     defaults = load_defaults()
     project_root = find_project_root(Path(args.project_dir))
     paths = synapse_paths(project_root)
-
-    from .common import ensure_synapse_layout
 
     guard = WriteGuard.from_defaults(project_root=project_root, defaults=defaults)
     ensure_synapse_layout(paths, guard=guard)
@@ -31,7 +27,6 @@ def cmd_pack(args: argparse.Namespace) -> int:
     phase = (getattr(args, "phase", None) or "pack").strip()
     if not phase:
         raise SynapseError("pack requires a non-empty --phase")
-    # Phase is used in filenames; normalize to something file-safe.
     phase = slugify(phase, max_len=24)
 
     query = getattr(args, "query", None)
@@ -43,10 +38,8 @@ def cmd_pack(args: argparse.Namespace) -> int:
         if query.strip():
             slug = slugify(query)
         else:
-            # Do not include user-provided phase in the strftime format string.
             slug = f"{phase}-{_dt.datetime.now().strftime('%Y%m%d-%H%M%S')}"
     else:
-        # Slug is used in filenames; normalize to something file-safe.
         slug = slugify(slug)
 
     rg_queries = list(getattr(args, "rg_query", []) or [])

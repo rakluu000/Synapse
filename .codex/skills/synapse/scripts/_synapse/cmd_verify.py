@@ -1,15 +1,14 @@
 from __future__ import annotations
-
 import argparse
 import datetime as _dt
 import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Optional
-
 from .common import (
     SynapseError,
     WriteGuard,
+    ensure_synapse_layout,
     find_project_root,
     load_defaults,
     run_cmd,
@@ -27,14 +26,10 @@ from .verify.python import detect_python_steps
 from .verify.rust import detect_rust_steps
 from .verify.types import VerifyStep, VerifyStepResult
 
-
 def _ensure_layout(project_root: Path, *, guard: WriteGuard | None):
-    from .common import ensure_synapse_layout
-
     paths = synapse_paths(project_root)
     ensure_synapse_layout(paths, guard=guard)
     return paths
-
 
 def _detect_steps(project_root: Path, *, defaults: dict[str, Any], no_install: bool) -> list[VerifyStep]:
     runner = defaults.get("runner", {})
@@ -47,7 +42,6 @@ def _detect_steps(project_root: Path, *, defaults: dict[str, Any], no_install: b
     steps.extend(detect_go_steps(project_root, timeout_seconds=timeout_seconds))
     steps.extend(detect_dotnet_steps(project_root, timeout_seconds=timeout_seconds))
     return steps
-
 
 def _write_verify_log(
     log_path: Path,
@@ -78,7 +72,6 @@ def _write_verify_log(
         parts.append(stderr.rstrip())
         parts.append("")
     write_text(log_path, "\n".join(parts).rstrip() + "\n", guard=guard)
-
 
 def cmd_verify(args: argparse.Namespace) -> int:
     defaults = load_defaults()
@@ -185,4 +178,3 @@ def cmd_verify(args: argparse.Namespace) -> int:
     )
 
     return 0 if ok else 2
-

@@ -1,10 +1,8 @@
 from __future__ import annotations
-
 import datetime as _dt
 import re
 from pathlib import Path
 from typing import Any
-
 from .common import (
     SynapsePaths,
     WriteGuard,
@@ -15,7 +13,6 @@ from .common import (
     unique_path,
     write_text,
 )
-
 
 def derive_rg_queries(query: str, *, max_queries: int) -> list[str]:
     stop = {
@@ -60,7 +57,6 @@ def derive_rg_queries(query: str, *, max_queries: int) -> list[str]:
         return bool(re.search(r"[\u4e00-\u9fff]", s))
 
     def _min_len(s: str) -> int:
-        # Chinese words are often 2 chars; keep the bar lower for CJK.
         return 2 if _has_cjk(s) else 3
 
     tokens = re.findall(r"[A-Za-z0-9_][A-Za-z0-9_./:\-\\]{1,}", query)
@@ -86,15 +82,11 @@ def derive_rg_queries(query: str, *, max_queries: int) -> list[str]:
 
     for tok in tokens:
         _add(tok)
-
-    # Chinese-only queries previously produced no tokens. Derive a few short, fixed-string
-    # search terms from CJK sequences to improve the summary's recall.
     if cjk_seqs and len(out) < max_queries:
         for seq in cjk_seqs:
             s = seq.strip()
             if not s:
                 continue
-            # Prefer longer n-grams first (more specific), but cap total queries.
             for n in (4, 3, 2):
                 if len(out) >= max_queries:
                     break
@@ -111,7 +103,6 @@ def derive_rg_queries(query: str, *, max_queries: int) -> list[str]:
         q = query.strip()
         out.append(q[: (16 if _has_cjk(q) else 32)])
     return out[:max_queries]
-
 
 def _is_sensitive_file_candidate(path: Path) -> bool:
     """
@@ -132,11 +123,9 @@ def _is_sensitive_file_candidate(path: Path) -> bool:
         return True
     return False
 
-
 def select_key_files(project_root: Path, *, max_files: int, extra_files: list[Path] | None = None) -> list[Path]:
     candidates: list[Path] = []
     explicit: set[Path] = set()
-
     if extra_files:
         for p in extra_files:
             try:
@@ -145,7 +134,6 @@ def select_key_files(project_root: Path, *, max_files: int, extra_files: list[Pa
                     explicit.add(p.resolve())
             except Exception:
                 continue
-
     preferred_names = [
         "AGENTS.md",
         ".gitignore",
@@ -166,7 +154,6 @@ def select_key_files(project_root: Path, *, max_files: int, extra_files: list[Pa
             if p.resolve() not in explicit and _is_sensitive_file_candidate(p):
                 continue
             candidates.append(p)
-
     if is_git_repo(project_root):
         try:
             st = run_cmd(["git", "status", "--porcelain", "-z"], cwd=project_root, timeout_seconds=20)
@@ -178,8 +165,6 @@ def select_key_files(project_root: Path, *, max_files: int, extra_files: list[Pa
                     i += 1
                     if not entry:
                         continue
-                    # Format: XY<space>path. For renames/copies, the next NUL-terminated
-                    # token is the new path.
                     if len(entry) < 4:
                         continue
                     status = entry[:2]
@@ -210,7 +195,6 @@ def select_key_files(project_root: Path, *, max_files: int, extra_files: list[Pa
             break
     return unique
 
-
 def snippet_for_file(path: Path, *, max_lines: int, max_bytes: int) -> str:
     try:
         size = path.stat().st_size
@@ -227,7 +211,6 @@ def snippet_for_file(path: Path, *, max_lines: int, max_bytes: int) -> str:
     if len(lines) > max_lines:
         out += "\n…(truncated)\n"
     return out
-
 
 def build_context_pack(
     *,
@@ -348,7 +331,6 @@ def build_context_pack(
                 "!**/venv/**",
                 "--glob",
                 "!**/__pycache__/**",
-                # Best-effort: avoid scanning obvious secret files in auto context packs.
                 "--glob",
                 "!**/.env",
                 "--glob",
@@ -387,8 +369,6 @@ def build_context_pack(
                 "!**/out/**",
             ]
             if derived_queries:
-                # Derived tokens frequently include '.', '/', etc. Treat them as
-                # fixed strings to reduce noise and accidental regex blow-ups.
                 rg_argv.append("-F")
             rg_argv += ["--", q]
             rg = run_cmd(

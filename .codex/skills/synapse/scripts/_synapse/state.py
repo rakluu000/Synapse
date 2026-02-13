@@ -1,12 +1,9 @@
 from __future__ import annotations
-
 import json
 import re
 from pathlib import Path
 from typing import Any, Optional
-
 from .common import SynapsePaths, WriteGuard, read_json, read_text, utc_now_iso, write_json_atomic, write_text
-
 
 def extract_json_meta(markdown: str) -> dict[str, Any]:
     m = re.search(r"```json[ \t]*\r?\n(.*?)\r?\n```", markdown, flags=re.DOTALL | re.IGNORECASE)
@@ -17,7 +14,6 @@ def extract_json_meta(markdown: str) -> dict[str, Any]:
     except json.JSONDecodeError:
         return {}
     return meta if isinstance(meta, dict) else {}
-
 
 def upsert_plan_file(
     *,
@@ -37,7 +33,6 @@ def upsert_plan_file(
             existing_meta = extract_json_meta(read_text(plan_path))
         except Exception:
             existing_meta = {}
-
     created_at = now
     existing_created_at = existing_meta.get("created_at")
     if isinstance(existing_created_at, str) and existing_created_at.strip():
@@ -88,7 +83,6 @@ def _replace_json_meta(markdown: str, meta: dict[str, Any]) -> str:
     pattern = re.compile(r"```json[ \t]*\r?\n(.*?)\r?\n```", flags=re.DOTALL | re.IGNORECASE)
     if not pattern.search(markdown):
         raise ValueError("plan file is missing json meta block")
-    # Use a function replacement to avoid backslash escapes in replacement strings.
     return pattern.sub(lambda _m: block, markdown, count=1)
 
 
@@ -104,7 +98,6 @@ def update_plan_session(*, plan_path: Path, model: str, session_id: str, guard: 
         sessions = {}
     sessions[model] = session_id
     meta["sessions"] = sessions
-    # Keep meta self-consistent: this function performs a write, so bump updated_at.
     meta["updated_at"] = utc_now_iso()
     write_text(plan_path, _replace_json_meta(text, meta), guard=guard)
 

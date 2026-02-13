@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import datetime as _dt
 import json
 import os
@@ -9,10 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-
 class SynapseError(RuntimeError):
     pass
-
 
 def _is_windows_reserved_name(name: str) -> bool:
     """
@@ -33,7 +30,6 @@ def _is_windows_reserved_name(name: str) -> bool:
         return 1 <= int(base[3:]) <= 9
     return False
 
-
 def _normalize_write_root_token(token: str) -> str:
     """
     Normalize a configured allowed write root (first path component).
@@ -50,9 +46,7 @@ def _normalize_write_root_token(token: str) -> str:
         t = t.casefold()
     return t
 
-
 _FILE_ONLY_WRITE_ROOTS = frozenset(_normalize_write_root_token(x) for x in ("AGENTS.md", ".gitignore"))
-
 
 @dataclass(frozen=True)
 class WriteGuard:
@@ -99,24 +93,19 @@ class WriteGuard:
 
         root = _normalize_write_root_token(parts[0])
         if root in self.allowed_roots:
-            # Some roots are intended to be files, not directories.
             if root in _FILE_ONLY_WRITE_ROOTS and len(parts) != 1:
                 raise SynapseError(f"Write blocked by safety policy: {full} (root {root} is file-only)")
             return
         raise SynapseError(f"Write blocked by safety policy: {full} (allowed roots: {', '.join(self.allowed_roots)})")
 
-
 def utc_now_iso() -> str:
     return _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0).isoformat()
-
 
 def safe_mkdir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
-
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
-
 
 def write_text(path: Path, content: str, *, guard: WriteGuard | None = None) -> None:
     if guard:
@@ -124,10 +113,8 @@ def write_text(path: Path, content: str, *, guard: WriteGuard | None = None) -> 
     safe_mkdir(path.parent)
     path.write_text(content, encoding="utf-8", newline="\n")
 
-
 def read_json(path: Path) -> Any:
     return json.loads(read_text(path))
-
 
 def write_json_atomic(path: Path, data: Any, *, guard: WriteGuard | None = None) -> None:
     if guard:
@@ -140,12 +127,9 @@ def write_json_atomic(path: Path, data: Any, *, guard: WriteGuard | None = None)
     tmp.write_text(content, encoding="utf-8", newline="\n")
     os.replace(tmp, path)
 
-
 def defaults_path() -> Path:
-    # .../scripts/_synapse/common.py -> .../scripts -> .../ (skill root)
     skill_dir = Path(__file__).resolve().parents[2]
     return skill_dir / "assets" / "defaults.json"
-
 
 def load_defaults() -> dict[str, Any]:
     path = defaults_path()
@@ -156,13 +140,11 @@ def load_defaults() -> dict[str, Any]:
         raise SynapseError(f"Unsupported defaults.json: {path}")
     return data
 
-
 @dataclass(frozen=True)
 class CmdResult:
     code: int
     stdout: str
     stderr: str
-
 
 def run_cmd(
     argv: list[str],
@@ -194,7 +176,6 @@ def run_cmd(
         raise SynapseError(f"Command timed out after {timeout_seconds}s: {' '.join(argv)}") from e
     return CmdResult(code=proc.returncode, stdout=proc.stdout, stderr=proc.stderr)
 
-
 def find_project_root(project_dir: Path) -> Path:
     project_dir = project_dir.resolve()
     try:
@@ -206,14 +187,12 @@ def find_project_root(project_dir: Path) -> Path:
     root = res.stdout.strip()
     return Path(root).resolve() if root else project_dir
 
-
 def is_git_repo(project_root: Path) -> bool:
     try:
         res = run_cmd(["git", "rev-parse", "--is-inside-work-tree"], cwd=project_root, timeout_seconds=10)
     except SynapseError:
         return False
     return res.code == 0 and res.stdout.strip() == "true"
-
 
 @dataclass(frozen=True)
 class SynapsePaths:
@@ -226,7 +205,6 @@ class SynapsePaths:
     prompts_dir: Path
     index_json: Path
     state_json: Path
-
 
 def synapse_paths(project_root: Path) -> SynapsePaths:
     syn_dir = project_root / ".synapse"
@@ -242,11 +220,7 @@ def synapse_paths(project_root: Path) -> SynapsePaths:
         state_json=syn_dir / "state.json",
     )
 
-
 def ensure_synapse_layout(paths: SynapsePaths, *, guard: WriteGuard | None = None) -> None:
-    # IMPORTANT: also guard directory creation. If `.synapse` is a symlink/junction
-    # pointing outside the project root, mkdir would otherwise create dirs outside
-    # the repo before later writes are blocked.
     if guard:
         guard.assert_allowed(paths.synapse_dir)
         guard.assert_allowed(paths.plan_dir)
@@ -301,7 +275,6 @@ def ensure_synapse_layout(paths: SynapsePaths, *, guard: WriteGuard | None = Non
             m["by_slug"] = {}
     write_json_atomic(paths.state_json, state, guard=guard)
 
-
 def slugify(text: str, *, max_len: int = 48) -> str:
     text = text.strip().lower()
     text = re.sub(r"[^\w\s-]+", "", text, flags=re.UNICODE)
@@ -316,7 +289,6 @@ def slugify(text: str, *, max_len: int = 48) -> str:
             text = text[:max_len].rstrip("-")
     return text or "task"
 
-
 def unique_path(path: Path) -> Path:
     if not path.exists():
         return path
@@ -328,7 +300,6 @@ def unique_path(path: Path) -> Path:
         if not candidate.exists():
             return candidate
     raise SynapseError(f"Unable to allocate unique path for: {path}")
-
 
 def resolve_path_within_root(project_root: Path, path: Path) -> Path:
     """
@@ -349,7 +320,6 @@ def resolve_path_within_root(project_root: Path, path: Path) -> Path:
         raise SynapseError(f"Path escapes project root: {path} -> {full}") from e
 
     return full
-
 
 def truncate_bytes(text: str, max_bytes: int) -> str:
     if max_bytes <= 0:

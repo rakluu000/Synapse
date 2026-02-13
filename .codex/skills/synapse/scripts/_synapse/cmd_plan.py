@@ -1,12 +1,11 @@
 from __future__ import annotations
-
 import argparse
 from pathlib import Path
 from typing import Optional
-
 from .common import (
     SynapseError,
     WriteGuard,
+    ensure_synapse_layout,
     find_project_root,
     load_defaults,
     resolve_path_within_root,
@@ -18,7 +17,6 @@ from .common import (
 )
 from .context_pack import build_context_pack
 from .state import rebuild_index, update_state, upsert_plan_file
-
 
 def _gate_stub() -> str:
     return "\n".join(
@@ -58,13 +56,10 @@ def _gate_stub() -> str:
         ]
     ).strip()
 
-
 def cmd_plan(args: argparse.Namespace) -> int:
     defaults = load_defaults()
     project_root = find_project_root(Path(args.project_dir))
     paths = synapse_paths(project_root)
-
-    from .common import ensure_synapse_layout
 
     guard = WriteGuard.from_defaults(project_root=project_root, defaults=defaults)
     ensure_synapse_layout(paths, guard=guard)

@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import datetime as _dt
 import json
 import queue
@@ -13,9 +12,7 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 from typing import Any, Optional
-
 from .common import SynapseError, WriteGuard, safe_mkdir, synapse_paths, unique_path
-
 
 @dataclass
 class ModelRun:
@@ -35,16 +32,11 @@ class ModelRun:
     truncated_stdout_lines: int = 0
     truncated_stderr_lines: int = 0
 
-
 def model_argv(model: str, *, resume: Optional[str]) -> list[str]:
     if model == "gemini":
-        # NOTE: keep CLI args short to avoid Windows command line length limits.
-        # Provide the full prompt via stdin (see run_model_once).
         cmd = "gemini"
         if os.name == "nt" and shutil.which("gemini.cmd"):
             cmd = "gemini.cmd"
-        # Never auto-approve actions. In headless mode, Gemini CLI will deny most
-        # mutating tools by policy rather than prompting interactively.
         argv = [cmd, "-o", "stream-json", "--approval-mode", "default", "-p", ""]
         if resume:
             argv += ["--resume", resume]
@@ -88,7 +80,6 @@ def parse_stream_json_line(model: str, line: str) -> tuple[Optional[str], Option
         session_id = None
 
     if model == "gemini":
-        # Only capture assistant output, not the echoed user prompt.
         if obj.get("role") != "assistant":
             return None, session_id
         content = obj.get("content")
@@ -97,21 +88,17 @@ def parse_stream_json_line(model: str, line: str) -> tuple[Optional[str], Option
     if model == "claude":
         result = obj.get("result")
         return (result if isinstance(result, str) and result else None), session_id
-
     return None, session_id
-
 
 def run_model_once(run: ModelRun) -> ModelRun:
     start = time.time()
     argv = model_argv(run.model, resume=run.resume)
-
     if run.guard:
         run.guard.assert_allowed(run.log_path)
     safe_mkdir(run.log_path.parent)
     buf: list[str] = []
     final_text: Optional[str] = None
     session_id: Optional[str] = None
-
     try:
         with run.log_path.open("w", encoding="utf-8", newline="\n") as logf:
             proc = subprocess.Popen(
@@ -125,8 +112,6 @@ def run_model_once(run: ModelRun) -> ModelRun:
                 errors="replace",
                 bufsize=1,
             )
-
-            # Send prompt via stdin then close.
             if proc.stdin is not None:
                 try:
                     proc.stdin.write(run.prompt)
@@ -213,7 +198,6 @@ def run_model_once(run: ModelRun) -> ModelRun:
                     else:
                         final_text = delta
 
-                # Drain stderr quickly and stream it into the same jsonl log as structured lines.
                 for _ in range(200):
                     try:
                         eitem = stderr_q.get_nowait()
@@ -254,11 +238,9 @@ def run_model_once(run: ModelRun) -> ModelRun:
 
                 if stdout_done and stderr_done and proc.poll() is not None:
                     break
-                # If we timed out and the process still hasn't exited, don't hang forever.
                 if timed_out and proc.poll() is None and time.monotonic() > deadline + 5:
                     break
 
-            # Ensure the child process is reaped.
             if proc.poll() is None:
                 try:
                     proc.wait(timeout=1)
@@ -286,7 +268,6 @@ def run_model_once(run: ModelRun) -> ModelRun:
             run.exit_code = proc.returncode
 
     except Exception as e:
-        # Ensure the log file contains the error even if the process failed to spawn.
         try:
             if run.guard:
                 run.guard.assert_allowed(run.log_path)
@@ -317,13 +298,11 @@ def run_model_once(run: ModelRun) -> ModelRun:
     run.output_text = "".join(buf) if run.model == "gemini" else (final_text or "")
     return run
 
-
 def _backoff_sleep(base: float, *, attempt: int, max_seconds: float, jitter: bool) -> None:
     delay = min(max_seconds, base * (2 ** max(0, attempt - 1)))
     if jitter:
         delay = delay * (0.6 + random.random() * 0.8)
     time.sleep(delay)
-
 
 def run_model_with_retries(
     *,
@@ -352,7 +331,6 @@ def run_model_with_retries(
 
     ts = (run_ts or "").strip() or _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
 
-    last_run: Optional[ModelRun] = None
     for attempt in range(1, retries + 2):
         attempt_suffix = "" if attempt == 1 else f"-attempt{attempt}"
         base_log_path = synapse_paths(project_root).logs_dir / f"{ts}-{slug}-{phase}-{model}-stream{attempt_suffix}.jsonl"
@@ -369,7 +347,6 @@ def run_model_with_retries(
             guard=guard,
         )
         run = run_model_once(run)
-        last_run = run
         if run.exit_code == 0 and run.output_text.strip() == "" and not run.error:
             run.error = "exit_code=0 but no assistant output parsed from stream-json"
         ok = run.exit_code == 0 and run.output_text.strip() != ""
@@ -379,18 +356,7 @@ def run_model_with_retries(
             _backoff_sleep(base_seconds, attempt=attempt, max_seconds=max_seconds, jitter=jitter)
             continue
         return run
-    return last_run or ModelRun(
-        model=model,
-        prompt=prompt,
-        cwd=project_root,
-        resume=resume,
-        timeout_seconds=timeout_seconds,
-        log_path=log_path,
-        max_line_bytes=max_line_bytes,
-        guard=guard,
-        error="unknown failure",
-    )
-
+    raise AssertionError("unreachable")
 
 def extract_unified_diff(text: str) -> Optional[str]:
     m = re.search(r"```(?:diff|patch)[ \t]*\r?\n(.*?)\r?\n```", text, flags=re.DOTALL | re.IGNORECASE)
@@ -398,7 +364,6 @@ def extract_unified_diff(text: str) -> Optional[str]:
         diff = m.group(1).strip("\n") + "\n"
         if "diff --git" in diff or (diff.startswith("---") and "\n+++" in diff):
             return diff
-    # 1.5) raw '---/+++' style patch (no diff --git), possibly preceded by commentary.
     for m2 in re.finditer(r"^--- .*$", text, flags=re.MULTILINE):
         s = text[m2.start() :].strip("\n")
         if "\n+++ " in s and "\n@@ " in s:

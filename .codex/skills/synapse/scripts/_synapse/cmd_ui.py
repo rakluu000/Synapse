@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import argparse
 import http.server
 import json
@@ -7,12 +6,9 @@ import threading
 import urllib.parse
 import webbrowser
 from pathlib import Path
-
 from .common import SynapseError, find_project_root, synapse_paths
 
-
 def _load_ui_html() -> bytes:
-    # Skill root: .../synapse (this file is .../synapse/scripts/_synapse/cmd_ui.py)
     skill_root = Path(__file__).resolve().parents[2]
     ui_path = skill_root / "assets" / "ui" / "index.html"
     try:
@@ -30,9 +26,7 @@ def _load_ui_html() -> bytes:
         )
         return html.encode("utf-8")
 
-
 _UI_HTML_BYTES = _load_ui_html()
-
 
 def _list_rel_files(*, project_root: Path, root: Path) -> list[str]:
     if not root.exists():
@@ -52,14 +46,12 @@ def _list_rel_files(*, project_root: Path, root: Path) -> list[str]:
         out.append(str(rel).replace("\\", "/"))
     return out
 
-
 def _within_synapse(synapse_root: Path, p: Path) -> bool:
     try:
         p.resolve().relative_to(synapse_root.resolve())
         return True
     except Exception:
         return False
-
 
 def cmd_ui(args: argparse.Namespace) -> int:
     project_root = find_project_root(Path(args.project_dir))
@@ -69,8 +61,6 @@ def cmd_ui(args: argparse.Namespace) -> int:
         raise SynapseError(f".synapse not found under: {project_root} (run synapse init first)")
     if not syn_root.is_dir():
         raise SynapseError(f".synapse is not a directory: {syn_root} (delete/rename it and run synapse init)")
-    # Defense-in-depth: refuse to serve if `.synapse` resolves outside the project root
-    # (e.g., junction/symlink pointing elsewhere).
     try:
         proj_resolved = project_root.resolve()
     except Exception:
@@ -125,8 +115,6 @@ def cmd_ui(args: argparse.Namespace) -> int:
             if parsed.path == "/api/file":
                 qs = urllib.parse.parse_qs(parsed.query)
                 raw = (qs.get("path") or [""])[0]
-                # Tree paths are returned with POSIX separators ("/"). Path() accepts
-                # forward slashes on all platforms; avoid hard-coding Windows "\".
                 rel = Path(raw)
                 if rel.is_absolute() or rel.anchor:
                     return self._send(400, b"absolute path not allowed\n", content_type="text/plain; charset=utf-8")

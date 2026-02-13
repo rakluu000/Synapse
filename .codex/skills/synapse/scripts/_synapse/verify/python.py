@@ -1,9 +1,6 @@
 from __future__ import annotations
-
 from pathlib import Path
-
 from .types import VerifyStep
-
 
 def _should_run_pytest(project_root: Path) -> bool:
     if (project_root / "pytest.ini").exists():
@@ -21,13 +18,11 @@ def _should_run_pytest(project_root: Path) -> bool:
         return "pytest" in text
     return False
 
-
 def detect_python_steps(project_root: Path, *, timeout_seconds: int, no_install: bool) -> list[VerifyStep]:
     has_pyproject = (project_root / "pyproject.toml").exists()
     has_reqs = (project_root / "requirements.txt").exists()
     if not (has_pyproject or has_reqs):
         return []
-
     steps: list[VerifyStep] = []
     if not no_install:
         if has_pyproject:
@@ -66,4 +61,3 @@ def detect_python_steps(project_root: Path, *, timeout_seconds: int, no_install:
         )
 
     return steps
-

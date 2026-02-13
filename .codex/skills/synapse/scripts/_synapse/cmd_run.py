@@ -1,15 +1,14 @@
 from __future__ import annotations
-
 import argparse
 import datetime as _dt
 import re
 import sys
 from pathlib import Path
 from typing import Optional
-
 from .common import (
     SynapseError,
     WriteGuard,
+    ensure_synapse_layout,
     find_project_root,
     load_defaults,
     slugify,
@@ -20,7 +19,6 @@ from .common import (
 )
 from .llm import extract_unified_diff, run_model_with_retries
 from .state import rebuild_index, update_plan_session, update_state
-
 
 def _parse_kv(items: list[str]) -> dict[str, str]:
     out: dict[str, str] = {}
@@ -34,20 +32,16 @@ def _parse_kv(items: list[str]) -> dict[str, str]:
         out[k] = v
     return out
 
-
 def _render_prompt(template: str, *, vars: dict[str, str]) -> str:
     out = template
     for k, v in vars.items():
         out = out.replace("{{" + k + "}}", v)
     return out
 
-
 def cmd_run(args: argparse.Namespace) -> int:
     defaults = load_defaults()
     project_root = find_project_root(Path(args.project_dir))
     paths = synapse_paths(project_root)
-
-    from .common import ensure_synapse_layout
 
     guard = WriteGuard.from_defaults(project_root=project_root, defaults=defaults)
     ensure_synapse_layout(paths, guard=guard)
@@ -70,9 +64,6 @@ def cmd_run(args: argparse.Namespace) -> int:
     if not isinstance(prompt_file_raw, str) or not prompt_file_raw.strip():
         raise SynapseError("run requires --prompt-file <path>")
     prompt_file = Path(prompt_file_raw)
-    # On Windows, a path like "C:foo" is drive-relative (not absolute) and will
-    # ignore `project_root` when joined (surprising and unsafe). Require either
-    # an absolute path ("C:\\foo") or a normal relative path ("prompts\\x.md").
     if prompt_file.anchor and not prompt_file.is_absolute():
         raise SynapseError(f"Invalid --prompt-file path (drive-relative): {prompt_file_raw!r}")
     prompt_file = prompt_file if prompt_file.is_absolute() else (project_root / prompt_file).resolve()
@@ -127,8 +118,6 @@ def cmd_run(args: argparse.Namespace) -> int:
         run_ts=ts,
     )
     if run.exit_code == 0 and (run.output_text or "").strip() == "":
-        # Keep stdout stable (used by humans and potentially by a controller);
-        # emit troubleshooting hints on stderr.
         print(
             "synapse run warning: model returned exit_code=0 but no assistant output was parsed from stream-json; "
             f"inspect log: {run.log_path}",

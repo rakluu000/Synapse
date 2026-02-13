@@ -1,14 +1,10 @@
 from __future__ import annotations
-
 import re
 from pathlib import Path
-
 from .common import WriteGuard, read_text, write_text
-
 
 SYNAPSE_BLOCK_BEGIN = "<!-- SYNAPSE-BEGIN -->"
 SYNAPSE_BLOCK_END = "<!-- SYNAPSE-END -->"
-
 
 def ensure_gitignore(project_root: Path, *, guard: WriteGuard | None = None) -> None:
     gitignore = project_root / ".gitignore"
@@ -26,7 +22,6 @@ def ensure_gitignore(project_root: Path, *, guard: WriteGuard | None = None) -> 
         return
 
     write_text(gitignore, line + "\n", guard=guard)
-
 
 def render_synapse_block() -> str:
     return "\n".join(
@@ -58,7 +53,6 @@ def render_synapse_block() -> str:
             "",
         ]
     )
-
 
 def ensure_agents_md(project_root: Path, *, guard: WriteGuard | None = None) -> None:
     agents = project_root / "AGENTS.md"
